@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="screen_bg">#FFFFFF</color>
+    <color name="mint_card">#F0FFF4</color>
+    <color name="lime_accent">#B8E986</color>
+    <color name="lime_underline">#9AE66E</color>
+    <color name="time_highlight">#E85D04</color>
+    <color name="pace_highlight">#C9A227</color>
+    <color name="grey_secondary">#888888</color>
+    <color name="hero_scrim">#66000000</color>
+    <color name="fab_dark">#99000000</color>
+    <color name="club_placeholder_1">#5C8A6B</color>
+    <color name="club_placeholder_2">#4A7C8C</color>
+    <color name="club_placeholder_3">#6B5B95</color>
+    <color name="hero_placeholder">#6B9080</color>
+</resources>
