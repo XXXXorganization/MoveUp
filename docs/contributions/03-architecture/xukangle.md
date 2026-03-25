@@ -21,7 +21,7 @@
 ### 4. 文档编写
 - [ ] xukangle.md
 ## PR 链接
-- PR #X: https://github.com/xxx/xxx/pull/X
+- PR : https://github.com/XXXXorganization/MoveUp/pull/7
 ## 遇到的问题和解决
 1.问题：运行时出现 from double to float 类型不兼容报错，海拔数据无法正常获取。
 解决：在代码中添加 (float) 强制类型转换，统一数据类型，修复编译错误。
