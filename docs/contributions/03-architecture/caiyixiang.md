@@ -30,7 +30,7 @@
 - [√] seeds
 
 ## PR 链接
-- PR #X: https://github.com/xxx/xxx/pull/X
+- PR #: https://github.com/XXXXorganization/MoveUp/pull/6
 
 ##
 遇到的问题和解决
