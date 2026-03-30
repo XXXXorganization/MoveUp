@@ -1,0 +1,866 @@
+openapi: 3.0.3
+info:
+  title: Moveup API
+  version: 1.0.0
+  description: >
+    Moveup 跑步运动平台后台接口。包含用户模块、运动模块、社交模块、挑战模块和通用接口。
+servers:
+  - url: https://api.moveup.com/v1
+    description: 生产环境
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    StandardResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          type: object
+      required: [code, message]
+    TokenData:
+      type: object
+      properties:
+        token:
+          type: string
+        expires_in:
+          type: integer
+          description: 过期秒数
+        user:
+          $ref: '#/components/schemas/UserProfile'
+      required: [token, expires_in, user]
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        nickname:
+          type: string
+        avatar:
+          type: string
+        gender:
+          type: integer
+          description: 1男 2女 0未知
+        birthday:
+          type: string
+          format: date
+        height:
+          type: number
+        weight:
+          type: number
+        total_distance:
+          type: number
+        total_time:
+          type: number
+        total_runs:
+          type: integer
+        level:
+          type: integer
+        preferences:
+          type: object
+          properties:
+            target_distance:
+              type: number
+            remind_time:
+              type: string
+            voice_frequency:
+              type: string
+      required: [id, nickname]
+    RunStartRequest:
+      type: object
+      properties:
+        run_type:
+          type: string
+          enum: [outdoor, indoor]
+        target_distance:
+          type: number
+        target_time:
+          type: number
+      required: [run_type]
+    RunStartResponse:
+      type: object
+      properties:
+        run_id:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+    RunPointItem:
+      type: object
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+        altitude:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+        speed:
+          type: number
+        heart_rate:
+          type: integer
+      required: [lat, lng, timestamp]
+    RunPointsRequest:
+      type: object
+      properties:
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunPointItem'
+      required: [points]
+    FinishRunRequest:
+      type: object
+      properties:
+        feelings:
+          type: integer
+          minimum: 1
+          maximum: 5
+        notes:
+          type: string
+      required: [feelings]
+    RunListItem:
+      type: object
+      properties:
+        run_id:
+          type: string
+        date:
+          type: string
+        distance:
+          type: number
+        duration:
+          type: number
+        pace_avg:
+          type: string
+        calories:
+          type: number
+        route_image:
+          type: string
+    RunListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunListItem'
+    StatsResponse:
+      type: object
+      properties:
+        total_distance:
+          type: number
+        total_duration:
+          type: integer
+        total_calories:
+          type: number
+        avg_pace:
+          type: string
+        runs_count:
+          type: integer
+        daily_data:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              distance:
+                type: number
+    RouteCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunPointItem'
+        distance:
+          type: number
+        city:
+          type: string
+      required: [name, points, distance, city]
+    FriendRequest:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        message:
+          type: string
+      required: [user_id]
+    FriendRespond:
+      type: object
+      properties:
+        request_id:
+          type: integer
+        action:
+          type: string
+          enum: [accept, reject]
+      required: [request_id, action]
+    FeedCreate:
+      type: object
+      properties:
+        content:
+          type: string
+        run_id:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+    CommentCreate:
+      type: object
+      properties:
+        content:
+          type: string
+      required: [content]
+    SearchUsersResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserProfile'
+    ChallengeListResponse:
+      type: object
+      properties:
+        challenges:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              status:
+                type: string
+              description:
+                type: string
+    BadgeItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        icon:
+          type: string
+        achieved:
+          type: boolean
+paths:
+  /auth/code:
+    post:
+      summary: 发送验证码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                type:
+                  type: string
+                  enum: [login, register, reset]
+              required: [phone, type]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /auth/login:
+    post:
+      summary: 手机号登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                code:
+                  type: string
+              required: [phone, code]
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TokenData'
+  /user/profile:
+    get:
+      summary: 获取个人资料
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+    put:
+      summary: 更新个人资料
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  type: string
+                height:
+                  type: number
+                weight:
+                  type: number
+                birthday:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /user/avatar:
+    post:
+      summary: 上传头像
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /runs/start:
+    post:
+      summary: 开始运动
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunStartRequest'
+      responses:
+        '200':
+          description: 开始成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RunStartResponse'
+  /runs/{run_id}/points:
+    post:
+      summary: 上传运动轨迹点
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: run_id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunPointsRequest'
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /runs/{run_id}/finish:
+    post:
+      summary: 结束运动
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: run_id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinishRunRequest'
+      responses:
+        '200':
+          description: 结束成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /runs:
+    get:
+      summary: 获取运动记录列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RunListResponse'
+  /runs/{run_id}:
+    get:
+      summary: 获取单次运动详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: run_id
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: 运动详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /stats:
+    get:
+      summary: 获取运动统计
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [week, month, year]
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 统计数据
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/StatsResponse'
+  /routes:
+    post:
+      summary: 保存路线
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteCreateRequest'
+      responses:
+        '200':
+          description: 保存成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /routes/recommended:
+    get:
+      summary: 获取推荐路线
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: lat
+          in: query
+          schema:
+            type: number
+        - name: lng
+          in: query
+          schema:
+            type: number
+        - name: radius
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 推荐路线
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /users/search:
+    get:
+      summary: 搜索用户
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: keyword
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 用户列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SearchUsersResponse'
+  /friends/request:
+    post:
+      summary: 发送好友请求
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequest'
+      responses:
+        '200':
+          description: 请求发送成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /friends/respond:
+    post:
+      summary: 处理好友请求
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRespond'
+      responses:
+        '200':
+          description: 响应成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /friends:
+    get:
+      summary: 获取好友列表
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 好友列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /feeds:
+    post:
+      summary: 发布动态
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                run_id:
+                  type: string
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                topics:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+    get:
+      summary: 获取动态列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [following, recommend, friends]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 动态列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /feeds/{feed_id}/like:
+    post:
+      summary: 赞动态
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: feed_id
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: 点赞成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /feeds/{feed_id}/comment:
+    post:
+      summary: 评论动态
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: feed_id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+      responses:
+        '200':
+          description: 评论成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /leaderboard:
+    get:
+      summary: 获取排行榜
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [weekly, monthly]
+        - name: scope
+          in: query
+          schema:
+            type: string
+            enum: [friends, city, global]
+      responses:
+        '200':
+          description: 排行榜数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /challenges:
+    get:
+      summary: 获取挑战列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ongoing, upcoming, completed]
+      responses:
+        '200':
+          description: 挑战列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChallengeListResponse'
+  /challenges/{challenge_id}/join:
+    post:
+      summary: 参与挑战
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: challenge_id
+          schema:
+            type: integer
+          required: true
+      responses:
+        '200':
+          description: 加入成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /badges:
+    get:
+      summary: 获取成就徽章
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 徽章列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/BadgeItem'
+  /upload/image:
+    post:
+      summary: 上传图片
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                type:
+                  type: string
+                  enum: [avatar, feed, route]
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+  /config:
+    get:
+      summary: 获取系统配置
+      responses:
+        '200':
+          description: 系统配置
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardResponse'
+security:
+  - BearerAuth: []
