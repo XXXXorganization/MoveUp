@@ -37,7 +37,7 @@ Apifox 测试集合： 已建立基础接口集合并覆盖主流程（登录、
 测试用例数量： 27个（覆盖了 index.js 中定义的所有路由接口）。
 
 PR 链接
-PR #X: https://github.com/xxx/xxx/pull/X (请替换为实际链接)
+PR #X: https://github.com/XXXXorganization/MoveUp/pull/10 (请替换为实际链接)
 
 遇到的问题和解决
 问题：安卓模拟器无法访问本机后端（localhost 无法直连）
