@@ -24,6 +24,8 @@
 Authorization: Bearer <your_token>
 ```
 
+除 `POST /auth/code`、`POST /auth/login` 外，其他所有受保护接口都需要携带上述 `Authorization` 请求头。
+
 ---
 
 ## 👤 用户模块 API
@@ -135,9 +137,9 @@ POST /runs/start
 **请求参数**：
 ```json
 {
-  "run_type": "outdoor",  // outdoor/indoor
-  "target_distance": 5,   // 目标距离(km)
-  "target_time": 30       // 目标时间(min)
+  "run_type": "outdoor",  // outdoor/indoor（必填）
+  "target_distance": 5,   // 可选：目标距离(km)
+  "target_time": 30       // 可选：目标时间(min)
 }
 ```
 **响应**：
@@ -178,11 +180,11 @@ POST /runs/{run_id}/finish
 **请求参数**：
 ```json
 {
-  "feelings": 4,  // 感受评分 1-5
+  "feelings": 4,  // 必填：感受评分 1-5
   "notes": "今天状态不错"
 }
 ```
-**响应**：返回完整的运动总结数据
+**响应**：返回结束成功（StandardResponse）
 
 #### 获取运动记录列表
 ```
@@ -307,7 +309,7 @@ Content-Type: multipart/form-data
 **参数**：
 - `content`: "今日完成10公里！"
 - `run_id`: "RUN20241101123456" (可选，关联运动)
-- `images`: 图片文件数组 (最多9张)
+- `images`: 图片文件数组
 - `topics`: ["晨跑打卡", "10公里挑战"]
 
 #### 获取动态列表
@@ -332,7 +334,7 @@ POST /feeds/{feed_id}/comment
 ```
 GET /leaderboard?type=weekly&scope=friends
 ```
-**类型**：weekly/monthly，**范围**：friends/city/global
+**type**：weekly/monthly，**scope**：friends/city/global
 
 ---
 
@@ -342,6 +344,7 @@ GET /leaderboard?type=weekly&scope=friends
 ```
 GET /challenges?status=ongoing
 ```
+**status**：ongoing（进行中）/upcoming（即将开始）/completed（已完成）
 
 #### 参与挑战
 ```
