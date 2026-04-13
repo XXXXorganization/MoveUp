@@ -51,7 +51,14 @@ Moveup/
 ### 后端目录结构
 ```
 backend/
-├── src/
+├── app/
+│   ├── models/       # 数据模型
+│   ├── routes/       # 路由/控制器
+│   ├── services/     # 业务逻辑
+│   └── utils/        # 工具函数
+├── tests/            # 测试文件
+├── Dockerfile
+└── requirements.txt  # 或 package.json / go.mod
 
 ```
 
