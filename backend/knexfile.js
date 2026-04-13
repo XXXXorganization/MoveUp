@@ -17,5 +17,23 @@ module.exports = {
     seeds: {
       directory: './seeds'
     }
+  },
+  test: {
+    client: 'pg',
+    connection: {
+      host: '127.0.0.1',
+      port: 5432,
+      user: 'postgres',
+      password: 'asdQWE05--',
+      database: 'Moveup_db'
+    },
+    migrations: {
+      directory: './migrations',
+      extension: 'js',
+      stub: './migration.stub'
+    },
+    seeds: {
+      directory: './seeds'
+    }
   }
 };
