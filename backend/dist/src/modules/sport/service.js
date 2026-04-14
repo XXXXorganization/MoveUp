@@ -203,17 +203,17 @@ class SportService {
         if (points.length < 1) {
             return [];
         }
+        const normalizedPoints = this.normalizeGpsPoints(points);
         const correctedPoints = [];
         // 第一个点始终保留（添加 id 字段）
-        const firstPoint = points[0];
+        const firstPoint = normalizedPoints[0];
         correctedPoints.push(firstPoint);
-        for (let i = 1; i < points.length; i++) {
+        for (let i = 1; i < normalizedPoints.length; i++) {
             const prevPoint = correctedPoints[correctedPoints.length - 1];
-            const currPoint = points[i];
+            const currPoint = normalizedPoints[i];
             // 检查点的有效性
             if (this.isValidGpsPoint(prevPoint, currPoint)) {
-                const pointWithId = currPoint;
-                correctedPoints.push(pointWithId);
+                correctedPoints.push(currPoint);
             }
             // 无效点被跳过（不加入结果数组）
         }
@@ -227,9 +227,12 @@ class SportService {
         if (currPoint.accuracy !== undefined && currPoint.accuracy > this.GPS_ACCURACY_THRESHOLD) {
             return false;
         }
+        // 确保 timestamp 是 Date 对象
+        const prevTimestamp = prevPoint.timestamp instanceof Date ? prevPoint.timestamp : new Date(prevPoint.timestamp);
+        const currTimestamp = currPoint.timestamp instanceof Date ? currPoint.timestamp : new Date(currPoint.timestamp);
         // 计算距离和时间差
         const distance = this.haversineDistance(prevPoint.latitude, prevPoint.longitude, currPoint.latitude, currPoint.longitude);
-        const timeDiff = (currPoint.timestamp.getTime() - prevPoint.timestamp.getTime()) / 1000;
+        const timeDiff = (currTimestamp.getTime() - prevTimestamp.getTime()) / 1000;
         // 检查速度是否异常
         if (timeDiff > 0) {
             const speed = distance / timeDiff;
@@ -252,6 +255,15 @@ class SportService {
             totalDistance += this.haversineDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
         }
         return Math.round(totalDistance * 100) / 100; // 保留两位小数
+    }
+    /**
+     * 确保 GPS 点的 timestamp 是 Date 对象
+     */
+    normalizeGpsPoints(points) {
+        return points.map(point => ({
+            ...point,
+            timestamp: point.timestamp instanceof Date ? point.timestamp : new Date(point.timestamp),
+        }));
     }
     /**
      * 计算两点之间的球面距离（Haversine 公式）

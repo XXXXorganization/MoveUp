@@ -7,17 +7,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const supertest_1 = __importDefault(require("supertest"));
 const app_1 = __importDefault(require("../src/app"));
 const database_1 = require("../src/config/database");
+const auth_helper_1 = require("./helpers/auth-helper");
+/**
+ * 运动数据模块 API 测试
+ */
 describe('运动数据模块 API 测试', () => {
     let authToken;
     let recordId;
     const testPhone = '13800138001';
-    const testCode = '123456';
     beforeAll(async () => {
         // 确保数据库连接
         await database_1.db.raw('SELECT 1');
     });
     beforeEach(async () => {
-        // 清理测试数据
+        // 创建测试用户并获取 token
+        authToken = await (0, auth_helper_1.createTestUserAndGetToken)(testPhone);
+        // 清理测试数据 - 按顺序删除（考虑外键约束）
         await (0, database_1.db)('heart_rates').del();
         await (0, database_1.db)('gps_points').del();
         await (0, database_1.db)('sport_records').del();
@@ -25,23 +30,8 @@ describe('运动数据模块 API 测试', () => {
     afterAll(async () => {
         await database_1.db.destroy();
     });
-    /**
-     * 辅助函数：获取认证 token
-     */
-    async function getAuthToken() {
-        // 先发送验证码
-        await (0, supertest_1.default)(app_1.default)
-            .post('/v1/auth/code')
-            .send({ phone: testPhone, type: 'login' });
-        // 登录获取 token
-        const loginRes = await (0, supertest_1.default)(app_1.default)
-            .post('/v1/auth/login')
-            .send({ phone: testPhone, code: testCode });
-        return loginRes.body.data.token;
-    }
     describe('POST /v1/sport/start - 开始运动记录', () => {
         it('应该成功创建运动记录', async () => {
-            authToken = await getAuthToken();
             const res = await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
                 .set('Authorization', `Bearer ${authToken}`);
@@ -54,7 +44,6 @@ describe('运动数据模块 API 测试', () => {
             recordId = res.body.data.id;
         });
         it('用户已有进行中的记录时应该失败', async () => {
-            authToken = await getAuthToken();
             // 创建第一条记录
             await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
@@ -69,7 +58,6 @@ describe('运动数据模块 API 测试', () => {
     });
     describe('PUT /v1/sport/:recordId/update - 更新运动记录', () => {
         beforeEach(async () => {
-            authToken = await getAuthToken();
             const startRes = await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
                 .set('Authorization', `Bearer ${authToken}`);
@@ -124,7 +112,6 @@ describe('运动数据模块 API 测试', () => {
     });
     describe('POST /v1/sport/:recordId/gps/batch - 批量上传 GPS 轨迹点', () => {
         beforeEach(async () => {
-            authToken = await getAuthToken();
             const startRes = await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
                 .set('Authorization', `Bearer ${authToken}`);
@@ -133,8 +120,8 @@ describe('运动数据模块 API 测试', () => {
         it('应该成功批量上传 GPS 轨迹点', async () => {
             const gpsPoints = [
                 { recordId, latitude: 39.9042, longitude: 116.4074, timestamp: new Date() },
-                { recordId, latitude: 39.9052, longitude: 116.4084, timestamp: new Date(Date.now() + 1000) },
-                { recordId, latitude: 39.9062, longitude: 116.4094, timestamp: new Date(Date.now() + 2000) },
+                { recordId, latitude: 39.90421, longitude: 116.40741, timestamp: new Date(Date.now() + 1000) },
+                { recordId, latitude: 39.90422, longitude: 116.40742, timestamp: new Date(Date.now() + 2000) },
             ];
             const res = await (0, supertest_1.default)(app_1.default)
                 .post(`/v1/sport/${recordId}/gps/batch`)
@@ -153,7 +140,6 @@ describe('运动数据模块 API 测试', () => {
     });
     describe('POST /v1/sport/:recordId/heart-rate/batch - 批量上传心率数据', () => {
         beforeEach(async () => {
-            authToken = await getAuthToken();
             const startRes = await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
                 .set('Authorization', `Bearer ${authToken}`);
@@ -175,7 +161,6 @@ describe('运动数据模块 API 测试', () => {
     });
     describe('PUT /v1/sport/:recordId/stop - 停止运动记录', () => {
         beforeEach(async () => {
-            authToken = await getAuthToken();
             const startRes = await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
                 .set('Authorization', `Bearer ${authToken}`);
@@ -221,7 +206,6 @@ describe('运动数据模块 API 测试', () => {
     });
     describe('GET /v1/sport/:recordId/realtime - 获取实时运动数据', () => {
         beforeEach(async () => {
-            authToken = await getAuthToken();
             const startRes = await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
                 .set('Authorization', `Bearer ${authToken}`);
@@ -240,7 +224,6 @@ describe('运动数据模块 API 测试', () => {
     });
     describe('GET /v1/sport - 获取用户运动记录列表', () => {
         beforeEach(async () => {
-            authToken = await getAuthToken();
             // 创建一些测试记录
             await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
@@ -256,7 +239,6 @@ describe('运动数据模块 API 测试', () => {
     });
     describe('GET /v1/sport/:recordId/gps - 获取 GPS 轨迹点', () => {
         beforeEach(async () => {
-            authToken = await getAuthToken();
             const startRes = await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
                 .set('Authorization', `Bearer ${authToken}`);
@@ -283,7 +265,6 @@ describe('运动数据模块 API 测试', () => {
     });
     describe('GET /v1/sport/:recordId/heart-rate - 获取心率数据', () => {
         beforeEach(async () => {
-            authToken = await getAuthToken();
             const startRes = await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
                 .set('Authorization', `Bearer ${authToken}`);
@@ -310,7 +291,6 @@ describe('运动数据模块 API 测试', () => {
     });
     describe('POST /v1/sport/:recordId/bluetooth/heart-rate - 蓝牙心率设备数据', () => {
         beforeEach(async () => {
-            authToken = await getAuthToken();
             const startRes = await (0, supertest_1.default)(app_1.default)
                 .post('/v1/sport/start')
                 .set('Authorization', `Bearer ${authToken}`);
@@ -339,7 +319,6 @@ describe('运动数据模块 API 测试', () => {
     });
     describe('GET /v1/sport/stats - 获取用户运动统计', () => {
         beforeEach(async () => {
-            authToken = await getAuthToken();
         });
         it('应该成功获取用户统计（无记录）', async () => {
             const res = await (0, supertest_1.default)(app_1.default)
