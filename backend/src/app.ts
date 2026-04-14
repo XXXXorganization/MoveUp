@@ -34,6 +34,15 @@ const sportController = new SportController(sportService);
 app.use('/v1', createUserRoutes(userController));
 app.use('/v1', createSportRoutes(sportController));
 
+// 健康检查端点
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
+
 // 错误处理中间件
 app.use(errorHandler);
 
