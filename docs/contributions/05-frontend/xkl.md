@@ -25,8 +25,7 @@
 - [x] 处理加载状态和错误：完善了网络请求的异常回调机制与防抖，优化 Mock 数据的加载体验
 
 ## PR 链接
-- PR #X: https://github.com/xxx/xxx/pull/X (请根据实际情况替换仓库链接)
-
+- PR #X: https://github.com/XXXXorganization/MoveUp/pull/14
 ## 遇到的问题和解决
 
 1. **问题**：在跑步社交动态页（社区/俱乐部等）中，需要承载带有图文、多级评论和点赞的复杂层级列表，维护难度高、UI更新容易冲突。
