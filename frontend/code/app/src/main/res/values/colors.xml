@@ -5,6 +5,9 @@
     <color name="screen_bg">#FFFFFF</color>
     <color name="mint_card">#F0FFF4</color>
     <color name="lime_accent">#B8E986</color>
+    <!-- Running UI (match design mock ~#D9FF73) -->
+    <color name="running_lime">#D9FF73</color>
+    <color name="running_pill_bg">#EEF8C8</color>
     <color name="lime_underline">#9AE66E</color>
     <color name="time_highlight">#E85D04</color>
     <color name="pace_highlight">#C9A227</color>
