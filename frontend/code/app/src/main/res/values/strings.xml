@@ -20,6 +20,7 @@
     <string name="club_bandung">Bandung Hills Run</string>
     <string name="club_bandung_loc">Bandung, Indonesia</string>
     <string name="content_desc_menu">Open menu</string>
+    <string name="content_desc_map">Show map</string>
     <string name="content_desc_open_detail">Open details</string>
     <string name="content_desc_share">Share workout</string>
     <string name="history_screen_title">History</string>

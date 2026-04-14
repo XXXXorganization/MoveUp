@@ -31,7 +31,7 @@ public class Start extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 // 跳转到Log页面
-                Intent intent = new Intent(Start.this, Log.class);
+                Intent intent = new Intent(Start.this, Login.class);
                 startActivity(intent);
             }
         });
