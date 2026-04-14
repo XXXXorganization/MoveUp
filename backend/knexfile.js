@@ -3,11 +3,29 @@ module.exports = {
   development: {
     client: 'pg',
     connection: {
-      host: '127.0.0.1',
+      host: 'postgres',  // 使用Docker服务名
       port: 5432,
-      user: 'postgres',     // 替换为你的用户名
-      password: 'asdQWE05--', // 替换为你的密码
-      database: 'Moveup_db'
+      user: 'postgres',
+      password: 'postgres',  // 使用环境变量
+      database: 'moveup_db'
+    },
+    migrations: {
+      directory: './migrations',
+      extension: 'js',
+      stub: './migration.stub'
+    },
+    seeds: {
+      directory: './seeds'
+    }
+  },
+  test: {
+    client: 'pg',
+    connection: {
+      host: 'postgres',  // 使用Docker服务名
+      port: 5432,
+      user: 'postgres',
+      password: 'postgres',  // 使用环境变量
+      database: 'moveup_db'
     },
     migrations: {
       directory: './migrations',

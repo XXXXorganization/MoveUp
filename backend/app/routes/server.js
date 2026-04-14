@@ -37,6 +37,5 @@ routes.forEach(route => {
 const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`🏃 Moveup Mock Backend is running on http://localhost:${PORT}`);
-  console.log(`（Android 模拟器请使用 http://10.0.2.2:${PORT} 访问）`);
   console.log(`等待请求中...\n`);
 });
