@@ -12,7 +12,7 @@
 - [√] 实现了ai数据总结功能的后端api，并且利用jest完成了功能测试，18个api测试全部顺利通过
 - [√] 错误处理
 
-## PR 链接- PR #X: https://github.com/xxx/xxx/pull/X
+## PR 链接- PR #X: https://github.com/XXXXorganization/MoveUp/pull/17
 
 ## 心得体会
 1、学会了在网上寻找deepseek的api密钥
