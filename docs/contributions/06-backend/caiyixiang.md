@@ -21,7 +21,7 @@
 - [√] docker-compose.yml 配置
 - [√] 本地联调验证
 
-## PR 链接 - PR #X: https://github.com/xxx/xxx/pull/X
+## PR 链接 - PR #X: https://github.com/XXXXorganization/MoveUp/pull/15
 
 ## 遇到的问题和解决
 
