@@ -358,6 +358,254 @@ GET /badges
 
 ---
 
+## 🧠 智能指导模块 API
+
+### 1. 训练计划
+
+#### 获取训练计划列表
+```
+GET /coaching/plans?difficulty=beginner
+```
+**Query 参数**：`difficulty`（可选）：beginner / intermediate / advanced
+
+**响应**：
+```json
+{
+  "code": 200,
+  "data": [
+    {
+      "id": "uuid",
+      "name": "5公里入门计划",
+      "description": "适合跑步新手的8周训练计划",
+      "difficulty": "beginner",
+      "durationWeeks": 8,
+      "targetDistance": 5000,
+      "schedule": [
+        {
+          "week": 1,
+          "days": [
+            { "day": 1, "type": "run", "distance": 3000, "duration": 30, "pace": "6:30-7:00", "description": "轻松跑" },
+            { "day": 2, "type": "rest" },
+            { "day": 3, "type": "run", "distance": 3000, "duration": 30, "pace": "6:30-7:00", "description": "轻松跑" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### 获取训练计划详情
+```
+GET /coaching/plans/:planId
+```
+
+#### AI 推荐训练计划
+```
+POST /coaching/plans/recommend
+```
+**请求参数**：
+```json
+{
+  "fitnessLevel": "beginner",
+  "targetDistance": 5000,
+  "weeklyFrequency": 3,
+  "goalType": "health"
+}
+```
+**goalType**：health / speed / distance / marathon
+
+**响应**：返回最多 3 个推荐计划列表
+
+#### 采用训练计划
+```
+POST /coaching/plans/:planId/adopt
+```
+**响应**：
+```json
+{
+  "code": 200,
+  "data": {
+    "id": "user-plan-uuid",
+    "planId": "plan-uuid",
+    "currentWeek": 1,
+    "currentDay": 1,
+    "isActive": true,
+    "completionRate": 0,
+    "todayTask": { "day": 1, "type": "run", "distance": 3000, "pace": "6:30-7:00" },
+    "plan": { "name": "5公里入门计划" }
+  }
+}
+```
+
+### 2. 用户计划进度
+
+#### 获取当前进行中的计划
+```
+GET /coaching/my-plan
+```
+
+#### 获取今日训练任务
+```
+GET /coaching/today-task
+```
+**响应**：
+```json
+{
+  "code": 200,
+  "data": {
+    "userPlanId": "uuid",
+    "planName": "5公里入门计划",
+    "week": 2,
+    "day": 3,
+    "completionRate": 25,
+    "task": {
+      "day": 3,
+      "type": "run",
+      "distance": 4000,
+      "duration": 35,
+      "pace": "6:00-6:30",
+      "description": "配速跑"
+    }
+  }
+}
+```
+
+#### 更新训练进度
+```
+PUT /coaching/my-plan/:userPlanId/progress
+```
+**请求参数**：
+```json
+{
+  "week": 2,
+  "day": 4
+}
+```
+
+#### 退出训练计划
+```
+DELETE /coaching/my-plan/:userPlanId
+```
+
+---
+
+### 3. 语音指导
+
+#### 获取实时语音播报内容
+```
+POST /coaching/voice-guidance
+```
+**请求参数**：
+```json
+{
+  "distanceM": 1000,
+  "currentPace": 330,
+  "currentHeartRate": 145,
+  "config": {
+    "distanceInterval": 1000,
+    "paceAlertEnabled": true,
+    "heartRateAlertEnabled": true,
+    "paceThreshold": 420,
+    "heartRateThreshold": 170
+  }
+}
+```
+**响应**：
+```json
+{
+  "code": 200,
+  "data": {
+    "messages": ["已跑 1.0 公里，当前配速 5 分 30 秒"]
+  }
+}
+```
+
+#### 获取分段教练建议（根据心率）
+```
+POST /coaching/segment-advice
+```
+**请求参数**：
+```json
+{
+  "currentHeartRate": 165,
+  "age": 25
+}
+```
+**响应**：
+```json
+{
+  "code": 200,
+  "data": {
+    "currentHeartRate": 165,
+    "heartRateZone": "anaerobic",
+    "zoneLabel": "无氧区（80-90%）",
+    "advice": "心率较高，适合短距离冲刺，长跑建议降速",
+    "suggestedPace": "5:00-5:30/km",
+    "shouldSlowDown": true
+  }
+}
+```
+
+**心率区间说明**：
+
+| zone | 范围 | 说明 |
+|------|------|------|
+| warmup | <60% 最大心率 | 热身区 |
+| fat_burn | 60-70% | 燃脂区 |
+| aerobic | 70-80% | 有氧区 |
+| anaerobic | 80-90% | 无氧区 |
+| max | >90% | 极限区 |
+
+---
+
+### 4. 健康建议
+
+#### 获取跑后拉伸指导
+```
+GET /coaching/stretching?runDuration=1800
+```
+**Query 参数**：`runDuration`（秒，跑步时长，影响拉伸动作数量）
+
+**响应**：
+```json
+{
+  "code": 200,
+  "data": {
+    "runDuration": 1800,
+    "exercises": [
+      { "name": "股四头肌拉伸", "duration": 30, "description": "单腿站立，弯曲膝盖将脚跟拉向臀部", "targetMuscle": "大腿前侧" },
+      { "name": "腘绳肌拉伸", "duration": 30, "description": "坐地伸直双腿，身体前倾触碰脚尖", "targetMuscle": "大腿后侧" },
+      { "name": "小腿拉伸", "duration": 30, "description": "面墙站立，一脚向后蹬地拉伸小腿", "targetMuscle": "小腿" },
+      { "name": "髋屈肌拉伸", "duration": 30, "description": "弓步姿势，前腿弯曲，后腿膝盖着地", "targetMuscle": "髋部" }
+    ]
+  }
+}
+```
+
+#### 获取伤病预防建议
+```
+GET /coaching/injury-prevention?weeklyDistance=30000&recentRunCount=4
+```
+**Query 参数**：
+- `weeklyDistance`：本周跑量（米）
+- `recentRunCount`：近期连续跑步天数
+
+**响应**：
+```json
+{
+  "code": 200,
+  "data": [
+    { "category": "warmup", "title": "跑前热身", "content": "每次跑步前进行 5-10 分钟动态热身", "priority": "high" },
+    { "category": "cooldown", "title": "跑后拉伸", "content": "跑步结束后进行静态拉伸，每个动作保持 30 秒", "priority": "high" },
+    { "category": "footwear", "title": "跑鞋选择", "content": "跑鞋使用超过 500-800 公里后应更换", "priority": "medium" },
+    { "category": "nutrition", "title": "补水与营养", "content": "跑步前后及时补水，长跑后 30 分钟内补充碳水化合物和蛋白质", "priority": "low" }
+  ]
+}
+```
+
+---
+
 ## ⚙️ 其他通用 API
 
 #### 上传图片（通用）
