@@ -93,6 +93,8 @@ public class Main extends AppCompatActivity {
 
         // 向后端拉取数据
         fetchLatestActivities(currentUserId);
+// ================= 新增：在这里召唤 AI 悬浮球 =================
+        AIFloatManager.addFloat(this);
     }
 
     // 生命周期：当从其他页面（如完成跑步）返回时自动刷新主页数据
