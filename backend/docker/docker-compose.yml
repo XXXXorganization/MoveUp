@@ -32,7 +32,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6479}:6380"
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
       interval: 10s
@@ -63,7 +63,7 @@ services:
 
       # Redis 配置
       REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_PORT: 6479
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
 
       # 应用配置
@@ -78,10 +78,13 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_BUCKET: ${MINIO_BUCKET:-moveup-uploads}
+      # AI 配置
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     volumes:
-      - ./backend/migrations:/app/migrations:ro
+      - ../migrations:/app/migrations:ro
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s

@@ -1,39 +1,49 @@
 // knexfile.js
+require('dotenv').config();
+
+const base = {
+  migrations: {
+    directory: './migrations',
+    extension: 'js',
+    stub: './migration.stub'
+  },
+  seeds: {
+    directory: './seeds'
+  }
+};
+
 module.exports = {
   development: {
     client: 'pg',
-    connection: {
-      host: 'postgres',  // 使用Docker服务名
-      port: 5432,
-      user: 'postgres',
-      password: 'postgres',  // 使用环境变量
-      database: 'moveup_db'
+    connection: process.env.DATABASE_URL || {
+      host: process.env.DB_HOST || 'postgres',
+      port: process.env.DB_PORT || 5432,
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+      database: process.env.DB_NAME || 'moveup_db'
     },
-    migrations: {
-      directory: './migrations',
-      extension: 'js',
-      stub: './migration.stub'
-    },
-    seeds: {
-      directory: './seeds'
-    }
+    ...base
   },
   test: {
     client: 'pg',
-    connection: {
-      host: 'postgres',  // 使用Docker服务名
-      port: 5432,
-      user: 'postgres',
-      password: 'postgres',  // 使用环境变量
-      database: 'moveup_db'
+    connection: process.env.DATABASE_URL || {
+      host: process.env.DB_HOST || 'postgres',
+      port: process.env.DB_PORT || 5432,
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+      database: process.env.DB_NAME || 'moveup_db'
     },
-    migrations: {
-      directory: './migrations',
-      extension: 'js',
-      stub: './migration.stub'
+    ...base
+  },
+  production: {
+    client: 'pg',
+    connection: process.env.DATABASE_URL || {
+      host: process.env.DB_HOST || 'postgres',
+      port: process.env.DB_PORT || 5432,
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+      database: process.env.DB_NAME || 'moveup_db'
     },
-    seeds: {
-      directory: './seeds'
-    }
+    ...base
   }
 };
