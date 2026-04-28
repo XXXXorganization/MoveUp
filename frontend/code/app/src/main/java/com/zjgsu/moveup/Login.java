@@ -2,13 +2,17 @@ package com.zjgsu.moveup;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.method.HideReturnsTransformationMethod;
+import android.text.method.PasswordTransformationMethod;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -27,9 +31,15 @@ import java.net.URL;
 
 public class Login extends AppCompatActivity {
 
-    private EditText etPhone; // 改为电话号码输入框
+    // 🌟 新增这一行，设为 public static 方便测试代码修改 [cite: 22]
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
+    private EditText etPhone;
     private EditText etPassword;
+    private ImageView ivEyeLogin;
     private Handler mainHandler;
+
+    private boolean isPasswordVisible = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,16 +54,55 @@ public class Login extends AppCompatActivity {
 
         mainHandler = new Handler(Looper.getMainLooper());
 
-        // 绑定新的 UI ID
         etPhone = findViewById(R.id.et_phone);
         etPassword = findViewById(R.id.et_password);
+        ivEyeLogin = findViewById(R.id.iv_eye_login);
         Button btnLogin = findViewById(R.id.btn_login);
         Button btnGoRegister = findViewById(R.id.btn_go_register);
+        View btnBack = findViewById(R.id.btn_back);
+
+        // 🌟 1. 读取本地历史保存的账户和密码 (记住密码) [cite: 22]
+        SharedPreferences localPrefs = getSharedPreferences("Local_History", MODE_PRIVATE);
+        String savedPhone = localPrefs.getString("saved_phone", "");
+        String savedPwd = localPrefs.getString("saved_password", "");
+        if (!savedPhone.isEmpty()) {
+            etPhone.setText(savedPhone);
+            etPassword.setText(savedPwd);
+        }
+
+        // 🌟 2. 密码可视/隐藏 切换逻辑 [cite: 22]
+        ivEyeLogin.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isPasswordVisible = !isPasswordVisible;
+                if (isPasswordVisible) {
+                    // 密码可见，眼睛图标变亮变绿
+                    etPassword.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
+                    ivEyeLogin.setColorFilter(Color.parseColor("#C7FB58"));
+                } else {
+                    // 密码隐藏，眼睛图标恢复灰色
+                    etPassword.setTransformationMethod(PasswordTransformationMethod.getInstance());
+                    ivEyeLogin.setColorFilter(Color.parseColor("#888888"));
+                }
+                // 将光标移至末尾
+                etPassword.setSelection(etPassword.getText().length());
+            }
+        });
+
+        if (btnBack != null) {
+            btnBack.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(Login.this, Start.class);
+                    startActivity(intent);
+                    finish();
+                }
+            });
+        }
 
         btnLogin.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // 获取手机号和密码
                 String phone = etPhone.getText().toString().trim();
                 String password = etPassword.getText().toString().trim();
 
@@ -61,7 +110,6 @@ public class Login extends AppCompatActivity {
                     Toast.makeText(Login.this, "手机号和密码不能为空", Toast.LENGTH_SHORT).show();
                     return;
                 }
-
                 doLoginRequest(phone, password);
             }
         });
@@ -71,20 +119,19 @@ public class Login extends AppCompatActivity {
             public void onClick(View v) {
                 Intent intent = new Intent(Login.this, Register.class);
                 startActivity(intent);
+                finish();
             }
         });
     }
 
-    /**
-     * 调用后端登录接口
-     */
     private void doLoginRequest(final String phone, final String password) {
         new Thread(new Runnable() {
             @Override
             public void run() {
                 HttpURLConnection connection = null;
                 try {
-                    URL url = new URL("http://10.0.2.2:3000/v1/auth/login");
+                    // 🌟 修改点：将写死的地址改为使用 BASE_URL 拼接
+                    URL url = new URL(BASE_URL + "/v1/auth/login");
                     connection = (HttpURLConnection) url.openConnection();
                     connection.setRequestMethod("POST");
                     connection.setConnectTimeout(5000);
@@ -92,13 +139,9 @@ public class Login extends AppCompatActivity {
                     connection.setDoOutput(true);
                     connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
 
-                    // 构造发送给后端的 JSON
                     JSONObject jsonBody = new JSONObject();
                     jsonBody.put("phone", phone);
                     jsonBody.put("code", password);
-
-                    Log.d("API_TEST", "=== 前端准备发送数据 ===");
-                    Log.d("API_TEST", "请求Body: " + jsonBody.toString());
 
                     OutputStream os = connection.getOutputStream();
                     os.write(jsonBody.toString().getBytes("UTF-8"));
@@ -125,12 +168,8 @@ public class Login extends AppCompatActivity {
                     if (httpCode == 200) {
                         try {
                             String responseString = sb.toString();
-                            Log.d("API_TEST", "完整返回: " + responseString);
-
                             JSONObject resp = new JSONObject(responseString);
-                            // 提取后端的业务码 (200=成功, 404=无账号, 401=密码错等)
                             int apiCode = resp.optInt("code", -1);
-                            // 提取后端自定义的报错信息用于 Toast
                             message = resp.optString("message", message);
 
                             if (apiCode == 200) {
@@ -144,18 +183,10 @@ public class Login extends AppCompatActivity {
                                         prefs.edit().putString("jwt", token).putString("user_phone", phone).apply();
                                     }
                                 }
-                            } else {
-                                tempSuccess = false;
-                                Log.w("API_TEST", "业务拦截: " + message);
                             }
                         } catch (Exception e) {
-                            tempSuccess = false;
-                            message = "服务器数据解析异常";
                             Log.e("API_TEST", "JSON解析错误: " + e.getMessage());
                         }
-                    } else {
-                        message = "请求失败，网络状态码: " + httpCode;
-                        Log.e("API_TEST", message);
                     }
 
                     final boolean success = tempSuccess;
@@ -166,6 +197,13 @@ public class Login extends AppCompatActivity {
                         @Override
                         public void run() {
                             if (success) {
+                                // 🌟 3. 登录成功时，将账号和密码写入本地历史记录 [cite: 22]
+                                SharedPreferences localPrefs = getSharedPreferences("Local_History", MODE_PRIVATE);
+                                localPrefs.edit()
+                                        .putString("saved_phone", phone)
+                                        .putString("saved_password", password)
+                                        .apply();
+
                                 Toast.makeText(Login.this, "登录成功", Toast.LENGTH_SHORT).show();
                                 Intent intent = new Intent(Login.this, Main.class);
                                 intent.putExtra("USER_DATA_JSON", finalData);
@@ -173,7 +211,6 @@ public class Login extends AppCompatActivity {
                                 finish();
                             } else {
                                 Toast.makeText(Login.this, toastMsg, Toast.LENGTH_SHORT).show();
-
                                 if (toastMsg.contains("密码错误")) {
                                     etPassword.setText("");
                                     etPassword.requestFocus();
@@ -187,13 +224,10 @@ public class Login extends AppCompatActivity {
                         @Override
                         public void run() {
                             Toast.makeText(Login.this, "网络连接异常，请检查网络", Toast.LENGTH_SHORT).show();
-                            Log.e("API_TEST", "网络异常", e);
                         }
                     });
                 } finally {
-                    if (connection != null) {
-                        connection.disconnect();
-                    }
+                    if (connection != null) connection.disconnect();
                 }
             }
         }).start();

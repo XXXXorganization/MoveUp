@@ -106,6 +106,7 @@
                 android:textSize="16sp" />
 
             <ImageView
+                android:id="@+id/iv_eye_login"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@android:drawable/ic_menu_view"

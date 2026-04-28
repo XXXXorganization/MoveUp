@@ -37,12 +37,15 @@ import java.util.List;
 
 public class History extends AppCompatActivity {
 
+    // 🌟 新增：设为 public static 方便测试代码动态修改网络地址
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
     private RecyclerView list;
     private HistoryAdapter adapter;
     private List<HistoryRun> runList = new ArrayList<>();
     private Handler mainHandler;
 
-    private String currentUserId; // 🌟 存储当前用户ID
+    private String currentUserId;
 
     // 绑定顶部的统计视图
     private TextView totalKmValue;
@@ -59,7 +62,6 @@ public class History extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_history);
 
-        // 初始化 DrawerLayout
         drawerLayout = findViewById(R.id.drawerLayout);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -70,41 +72,31 @@ public class History extends AppCompatActivity {
 
         mainHandler = new Handler(Looper.getMainLooper());
 
-        // 获取并存储用户 ID
         SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
         currentUserId = prefs.getString("user_phone", "13800138000");
 
-        // 初始化视图
         totalKmValue = findViewById(R.id.totalKmValue);
         summaryRunValue = findViewById(R.id.summaryRunValue);
         summaryPaceValue = findViewById(R.id.summaryPaceValue);
         summaryTimeValue = findViewById(R.id.summaryTimeValue);
 
-        // 设置 RecyclerView 与空的 Adapter
         list = findViewById(R.id.recyclerHistory);
         list.setLayoutManager(new LinearLayoutManager(this));
 
-        // 🌟 点击分享按钮后，启动分享流程
         adapter = new HistoryAdapter(runList, (run, position) -> initiateShareSequence(run));
         list.setAdapter(adapter);
 
-        // 修改此处逻辑：点击菜单按钮展开侧滑菜单，而不是返回
         findViewById(R.id.btnMenu).setOnClickListener(v -> {
             if (drawerLayout != null) {
-                // 使用 GravityCompat.START 从屏幕左侧划出菜单
                 drawerLayout.openDrawer(GravityCompat.START);
             }
         });
 
-        // ================= 新增：绑定侧滑菜单的点击跳转逻辑 =================
         setupMenuClicks();
-        // =================================================================
 
-        // 开始向后端拉取当前账号的历史数据
         fetchHistoryData();
     }
 
-    // 新增的方法：与 Main 保持一致的菜单跳转逻辑
     private void setupMenuClicks() {
         TextView menuHome = findViewById(R.id.menu_home);
         TextView menuHistory = findViewById(R.id.menu_history);
@@ -112,33 +104,26 @@ public class History extends AppCompatActivity {
         TextView menuClub = findViewById(R.id.menu_club);
         TextView menuProfile = findViewById(R.id.menu_profile);
 
-        // Home → 跳转回主页
-        menuHome.setOnClickListener(v -> {
+        if (menuHome != null) menuHome.setOnClickListener(v -> {
             startActivity(new Intent(History.this, Main.class));
             finish();
         });
 
-        // History → 当前已在 History 页面，直接关闭侧滑菜单即可
-        menuHistory.setOnClickListener(v -> {
-            if (drawerLayout != null) {
-                drawerLayout.closeDrawers();
-            }
+        if (menuHistory != null) menuHistory.setOnClickListener(v -> {
+            if (drawerLayout != null) drawerLayout.closeDrawers();
         });
 
-        // Plan
-        menuPlan.setOnClickListener(v -> {
+        if (menuPlan != null) menuPlan.setOnClickListener(v -> {
             startActivity(new Intent(History.this, Plan.class));
             finish();
         });
 
-        // Club
-        menuClub.setOnClickListener(v -> {
+        if (menuClub != null) menuClub.setOnClickListener(v -> {
             startActivity(new Intent(History.this, clubterm.class));
             finish();
         });
 
-        // Profile → Mine
-        menuProfile.setOnClickListener(v -> {
+        if (menuProfile != null) menuProfile.setOnClickListener(v -> {
             startActivity(new Intent(History.this, Mine.class));
             finish();
         });
@@ -148,7 +133,8 @@ public class History extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/runs?user_id=" + currentUserId);
+                // 🌟 修改点 1：动态拼接 URL
+                URL url = new URL(BASE_URL + "/v1/runs?user_id=" + currentUserId);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -182,7 +168,7 @@ public class History extends AppCompatActivity {
                             for (int i = 0; i < listArray.length(); i++) {
                                 JSONObject obj = listArray.getJSONObject(i);
                                 runList.add(new HistoryRun(
-                                        obj.optString("id", "run_" + i), // 🌟 获取记录ID
+                                        obj.optString("id", "run_" + i),
                                         obj.optString("date", "未知时间"),
                                         obj.optString("title", "跑步记录"),
                                         obj.optString("duration_str", "0.00"),
@@ -209,9 +195,6 @@ public class History extends AppCompatActivity {
         }).start();
     }
 
-    // ===================== 🌟 新增的分享系列弹窗流程 =====================
-
-    /** 1. 确认分享弹窗 */
     private void initiateShareSequence(@NonNull HistoryRun run) {
         new AlertDialog.Builder(this)
                 .setTitle("Share Record")
@@ -221,11 +204,11 @@ public class History extends AppCompatActivity {
                 .show();
     }
 
-    /** 2. 拉取用户已加入的社团，并显示选择弹窗 */
     private void fetchMyClubsAndShowDialog(HistoryRun run) {
         new Thread(() -> {
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/user/clubs?user_id=" + currentUserId);
+                // 🌟 修改点 2：动态拼接 URL
+                URL url = new URL(BASE_URL + "/v1/user/clubs?user_id=" + currentUserId);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
 
@@ -255,7 +238,6 @@ public class History extends AppCompatActivity {
         }).start();
     }
 
-    /** 3. 选择要分享到的跑团 */
     private void showClubSelectionDialog(HistoryRun run, List<Club> myClubs) {
         if (myClubs.isEmpty()) {
             Toast.makeText(this, "You haven't joined any clubs yet.", Toast.LENGTH_SHORT).show();
@@ -276,7 +258,6 @@ public class History extends AppCompatActivity {
                 .show();
     }
 
-    /** 4. 填写分享的评论文本 */
     private void showTextInputDialog(HistoryRun run, Club club) {
         FrameLayout container = new FrameLayout(this);
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
@@ -299,17 +280,16 @@ public class History extends AppCompatActivity {
                 .show();
     }
 
-    /** 5. 上传相关的所有数据（用户ID, 评论时间, 历史ID, 俱乐部ID, 分享文本）到 Mock 后端 */
     private void uploadSharePost(HistoryRun run, Club club, String content) {
         new Thread(() -> {
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/clubs/" + club.id + "/posts");
+                // 🌟 修改点 3：动态拼接 URL
+                URL url = new URL(BASE_URL + "/v1/clubs/" + club.id + "/posts");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setDoOutput(true);
 
-                // 构建请求的 JSON 体
                 JSONObject body = new JSONObject();
                 body.put("user_id", currentUserId);
                 body.put("run_id", run.id);

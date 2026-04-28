@@ -154,6 +154,7 @@
                 android:textSize="16sp" />
 
             <ImageView
+                android:id="@+id/iv_eye_pwd1"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@android:drawable/ic_menu_view"
@@ -199,6 +200,13 @@
                 android:textColor="#191A1C"
                 android:textColorHint="#999999"
                 android:textSize="16sp" />
+
+            <ImageView
+                android:id="@+id/iv_eye_confirm_pwd1"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_view"
+                app:tint="#888888" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
