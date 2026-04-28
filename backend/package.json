@@ -6,8 +6,11 @@
     "dev": "ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "jest",
-    "test-db": "node connect.js"
+    "migrate": "npx knex migrate:latest",
+    "migrate:rollback": "npx knex migrate:rollback",
+    "test-db": "node connect.js",
+    "db:reset:test": "npx knex migrate:rollback --all --env test && npx knex migrate:latest --env test",
+    "test": "npm run db:reset:test && npx jest --coverage --no-cache"
   },
   "dependencies": {
     "axios": "^1.15.0",
