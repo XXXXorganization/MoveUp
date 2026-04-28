@@ -75,7 +75,7 @@ jobs:
 
       - name: Run database migrations
         working-directory: backend
-        run: npm run migrate
+        run: npx knex migrate:latest --env test
         env:
           NODE_ENV: test
           DB_HOST: localhost
