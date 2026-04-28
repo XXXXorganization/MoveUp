@@ -253,3 +253,130 @@ describe('getInjuryPreventionTips', () => {
     expect(categories).toContain('nutrition');
   });
 });
+
+// ==================== getAllPlans / getPlanById ====================
+
+describe('getAllPlans', () => {
+  it('有 difficulty 参数时应按难度过滤', async () => {
+    mockRepository.getTrainingPlansByDifficulty.mockResolvedValue([]);
+    await makeService().getAllPlans('beginner');
+    expect(mockRepository.getTrainingPlansByDifficulty).toHaveBeenCalledWith('beginner');
+    expect(mockRepository.getAllTrainingPlans).not.toHaveBeenCalled();
+  });
+
+  it('无参数时应返回全部计划', async () => {
+    mockRepository.getAllTrainingPlans.mockResolvedValue([]);
+    await makeService().getAllPlans();
+    expect(mockRepository.getAllTrainingPlans).toHaveBeenCalled();
+  });
+});
+
+describe('getPlanById', () => {
+  it('计划不存在时应抛出 404', async () => {
+    mockRepository.getTrainingPlanById.mockResolvedValue(null);
+    await expect(makeService().getPlanById('p1')).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('计划存在时应返回计划', async () => {
+    const plan: TrainingPlan = { id: 'p1', name: '入门计划', difficulty: 'beginner', targetDistance: 5000, durationWeeks: 8, schedule: [] };
+    mockRepository.getTrainingPlanById.mockResolvedValue(plan);
+    const result = await makeService().getPlanById('p1');
+    expect(result.id).toBe('p1');
+  });
+});
+
+// ==================== adoptPlan ====================
+
+describe('adoptPlan', () => {
+  it('计划不存在时应抛出 404', async () => {
+    mockRepository.getTrainingPlanById.mockResolvedValue(null);
+    await expect(makeService().adoptPlan('u1', 'p1')).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('采纳计划时应停用旧计划并创建新计划', async () => {
+    const plan: TrainingPlan = {
+      id: 'p1', name: '入门计划', difficulty: 'beginner',
+      targetDistance: 5000, durationWeeks: 8,
+      schedule: [{ week: 1, days: [{ day: 1, type: 'run', distance: 3000 }] }],
+    };
+    mockRepository.getTrainingPlanById.mockResolvedValue(plan);
+    mockRepository.deactivateAllUserPlans.mockResolvedValue(null as any);
+    mockRepository.createUserPlan.mockResolvedValue({
+      id: 'up1', userId: 'u1', planId: 'p1', currentWeek: 1, currentDay: 1,
+      isActive: true, startedAt: new Date(),
+    } as any);
+
+    await makeService().adoptPlan('u1', 'p1');
+    expect(mockRepository.deactivateAllUserPlans).toHaveBeenCalledWith('u1');
+    expect(mockRepository.createUserPlan).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1', planId: 'p1', currentWeek: 1, currentDay: 1 }),
+    );
+  });
+});
+
+// ==================== getActivePlan ====================
+
+describe('getActivePlan', () => {
+  it('无进行中计划时应抛出 404', async () => {
+    mockRepository.getActivePlanByUserId.mockResolvedValue(null);
+    await expect(makeService().getActivePlan('u1')).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('有进行中计划时应返回详情', async () => {
+    const plan: TrainingPlan = {
+      id: 'p1', name: '入门计划', difficulty: 'beginner',
+      targetDistance: 5000, durationWeeks: 8,
+      schedule: [{ week: 1, days: [{ day: 1, type: 'run' }] }],
+    };
+    mockRepository.getActivePlanByUserId.mockResolvedValue({
+      id: 'up1', userId: 'u1', planId: 'p1', currentWeek: 1, currentDay: 1,
+      isActive: true, startedAt: new Date(),
+    } as any);
+    mockRepository.getTrainingPlanById.mockResolvedValue(plan);
+
+    const result = await makeService().getActivePlan('u1');
+    expect(result.plan.id).toBe('p1');
+    expect(result.completionRate).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ==================== updateProgress ====================
+
+describe('updateProgress', () => {
+  it('计划记录不存在或不属于该用户时应抛出 404', async () => {
+    mockRepository.getUserPlanById.mockResolvedValue(null);
+    await expect(makeService().updateProgress('u1', 'up1', 2, 3)).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('week 超过 durationWeeks 时应标记为完成', async () => {
+    const plan: TrainingPlan = { id: 'p1', name: '8周计划', difficulty: 'beginner', targetDistance: 5000, durationWeeks: 8, schedule: [] };
+    const userPlan = { id: 'up1', userId: 'u1', planId: 'p1', currentWeek: 8, currentDay: 7, isActive: true, startedAt: new Date() };
+    mockRepository.getUserPlanById.mockResolvedValue(userPlan as any);
+    mockRepository.getTrainingPlanById.mockResolvedValue(plan);
+    mockRepository.updateUserPlan.mockResolvedValue({ ...userPlan, isActive: false, completedAt: new Date() } as any);
+
+    await makeService().updateProgress('u1', 'up1', 9, 1);
+    expect(mockRepository.updateUserPlan).toHaveBeenCalledWith('up1', expect.objectContaining({ isActive: false }));
+  });
+});
+
+// ==================== quitPlan ====================
+
+describe('quitPlan', () => {
+  it('计划不存在时应抛出 404', async () => {
+    mockRepository.getUserPlanById.mockResolvedValue(null);
+    await expect(makeService().quitPlan('u1', 'up1')).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('非本人计划时应抛出 404', async () => {
+    mockRepository.getUserPlanById.mockResolvedValue({ id: 'up1', userId: 'u2' } as any);
+    await expect(makeService().quitPlan('u1', 'up1')).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('正常退出时应设置 isActive=false', async () => {
+    mockRepository.getUserPlanById.mockResolvedValue({ id: 'up1', userId: 'u1' } as any);
+    mockRepository.updateUserPlan.mockResolvedValue(null as any);
+    await makeService().quitPlan('u1', 'up1');
+    expect(mockRepository.updateUserPlan).toHaveBeenCalledWith('up1', { isActive: false });
+  });
+});
