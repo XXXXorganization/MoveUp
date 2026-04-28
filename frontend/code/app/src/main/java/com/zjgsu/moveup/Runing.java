@@ -27,6 +27,7 @@ import com.amap.api.maps.AMap;
 import com.amap.api.maps.AMapUtils;
 import com.amap.api.maps.CameraUpdateFactory;
 import com.amap.api.maps.MapView;
+import com.amap.api.maps.MapsInitializer;
 import com.amap.api.maps.model.LatLng;
 import com.amap.api.maps.model.Polyline;
 import com.amap.api.maps.model.PolylineOptions;
@@ -92,9 +93,16 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 必须在初始化 AMap SDK 前同意隐私政策，否则会报错
-        AMapLocationClient.updatePrivacyShow(this, true, true);
-        AMapLocationClient.updatePrivacyAgree(this, true);
+        // 【关键修复】：必须同时同意“地图SDK”和“定位SDK”的隐私政策
+        // 否则定位能成功，但地图画面会永远黑屏！
+        MapsInitializer.updatePrivacyShow(this, true, true);
+        MapsInitializer.updatePrivacyAgree(this, true);
+        try {
+            AMapLocationClient.updatePrivacyShow(this, true, true);
+            AMapLocationClient.updatePrivacyAgree(this, true);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         setContentView(R.layout.activity_runing);
 
@@ -132,6 +140,7 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
             }, REQ_LOCATION);
         }
 
+        // 如果后端服务器没开，可以暂时注释掉下面这行避免报错
         postRunsStart();
         renderStats();
     }
@@ -157,6 +166,8 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
             locationOption.setLocationMode(AMapLocationClientOption.AMapLocationMode.Hight_Accuracy);
             // 2秒定位一次
             locationOption.setInterval(2000);
+            // 【新增】：强制要求高德返回具体的地址信息（逆地理编码）
+            locationOption.setNeedAddress(true);
 
             locationClient.setLocationOption(locationOption);
             locationClient.setLocationListener(this);
@@ -172,6 +183,12 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
             if (amapLocation.getErrorCode() == 0) {
                 tvGps.setText("GPS");
 
+                // 【日志输出】：在 Logcat 中以醒目的方式输出实时地址和经纬度
+                Log.i("LocationTracker", "🟢 获取定位成功！\n" +
+                        "经度: " + amapLocation.getLongitude() + "\n" +
+                        "纬度: " + amapLocation.getLatitude() + "\n" +
+                        "地址: " + amapLocation.getAddress());
+
                 LatLng currentLatLng = new LatLng(amapLocation.getLatitude(), amapLocation.getLongitude());
 
                 // 将地图镜头移动到当前位置
@@ -186,6 +203,8 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                             totalMeters += dist;
                             latLngPoints.add(currentLatLng);
                             drawRoute();
+                        } else {
+                            Log.i("LocationTracker", "🟡 位置未发生明显移动 (小于1米)");
                         }
                     } else {
                         latLngPoints.add(currentLatLng);
@@ -205,8 +224,8 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 }
                 renderStats();
             } else {
-                Log.e("AmapError", "location Error, ErrCode:" + amapLocation.getErrorCode()
-                        + ", errInfo:" + amapLocation.getErrorInfo());
+                Log.e("LocationTracker", "🔴 定位失败, 错误码: " + amapLocation.getErrorCode()
+                        + ", 错误信息: " + amapLocation.getErrorInfo());
                 tvGps.setText("GPS OFF");
             }
         }

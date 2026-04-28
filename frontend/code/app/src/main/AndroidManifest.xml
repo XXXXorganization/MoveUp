@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools" >
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -20,7 +20,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MoveUp"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true" >
+        <activity
+            android:name=".AItalk"
+            android:exported="false"
+            android:theme="@style/Theme.MoveUp" />
         <activity android:name=".PostDetailActivity" />
         <activity
             android:name=".Find"
@@ -34,7 +38,7 @@
 
         <meta-data
             android:name="com.amap.api.v2.apikey"
-            android:value="你的高德KEY" />
+            android:value="b4050fdb3dbe2c1d452da34b6b8f79cc" />
 
         <service android:name="com.amap.api.location.APSService" />
 
@@ -70,7 +74,7 @@
             android:exported="false" />
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
