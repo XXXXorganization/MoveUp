@@ -7,9 +7,9 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  # ================= 后端测试任务 =================
+  backend-test:
     runs-on: ubuntu-latest
-
     services:
       postgres:
         image: postgres:15
@@ -24,22 +24,17 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
-
       - name: Install dependencies
         working-directory: ./backend
         run: npm ci
-
-      # ✅ 这是最安全的迁移命令（全新数据库，直接跑就行）
       - name: Run migrations
         working-directory: ./backend
         run: npx knex migrate:latest --env test
@@ -49,7 +44,6 @@ jobs:
           DB_USER: moveup
           DB_PASSWORD: moveup_test
           DB_NAME: moveup_test
-
       - name: Run tests
         working-directory: ./backend
         run: npm test
@@ -59,3 +53,34 @@ jobs:
           DB_USER: moveup
           DB_PASSWORD: moveup_test
           DB_NAME: moveup_test
+      - name: Upload Backend Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: backend/coverage.xml
+          flags: backend
+          name: moveup-backend
+
+  # ================= 前端 Android 测试任务 =================
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Run Android Tests & Generate Report
+        run: ./gradlew testDebugUnitTest jacocoTestReport
+      - name: Upload Frontend Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          # 指向 Jacoco 生成的 XML 报告
+          files: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          flags: frontend
+          name: moveup-frontend
