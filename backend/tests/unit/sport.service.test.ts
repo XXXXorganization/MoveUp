@@ -218,3 +218,148 @@ describe('stopSportRecord', () => {
     expect(result.status).toBe('completed');
   });
 });
+
+// ==================== updateSportRecord ====================
+
+describe('updateSportRecord', () => {
+  it('记录不存在时应抛出 404', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue(null);
+    await expect(makeService().updateSportRecord('r1', { recordId: 'r1' } as any)).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('记录已结束时应抛出 400', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue({ id: 'r1', status: 'completed', startTime: new Date() } as any);
+    await expect(makeService().updateSportRecord('r1', { recordId: 'r1' } as any)).rejects.toMatchObject({ code: 400 });
+  });
+
+  it('有 GPS 点时应执行纠偏并插入', async () => {
+    const startTime = new Date(Date.now() - 10000);
+    const activeRecord = { id: 'r1', status: 'active', startTime };
+    mockRepository.getSportRecordById.mockResolvedValue(activeRecord as any);
+    mockRepository.insertGpsPoints.mockResolvedValue([]);
+    mockRepository.getGpsPointsByRecordId.mockResolvedValue([]);
+    mockRepository.getHeartRatesByRecordId.mockResolvedValue([]);
+    mockRepository.updateSportRecord.mockResolvedValue({ id: 'r1', status: 'active', startTime } as any);
+
+    const gpsPoints = [{ recordId: 'r1', latitude: 39.9, longitude: 116.3, timestamp: new Date(), accuracy: 10, altitude: 0, speed: 0 }];
+    await makeService().updateSportRecord('r1', { recordId: 'r1', gpsPoints } as any);
+    expect(mockRepository.insertGpsPoints).toHaveBeenCalled();
+  });
+});
+
+// ==================== batchUploadGpsPoints ====================
+
+describe('batchUploadGpsPoints', () => {
+  it('记录不存在时应抛出 404', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue(null);
+    await expect(makeService().batchUploadGpsPoints('r1', [])).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('记录已结束时应抛出 400', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue({ id: 'r1', status: 'completed', startTime: new Date() } as any);
+    await expect(makeService().batchUploadGpsPoints('r1', [])).rejects.toMatchObject({ code: 400 });
+  });
+
+  it('正常时应纠偏并返回 GPS 点', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue({ id: 'r1', status: 'active', startTime: new Date() } as any);
+    mockRepository.insertGpsPoints.mockResolvedValue([{ id: 'g1' }] as any);
+    const result = await makeService().batchUploadGpsPoints('r1', []);
+    expect(mockRepository.insertGpsPoints).toHaveBeenCalled();
+  });
+});
+
+// ==================== uploadHeartRateData ====================
+
+describe('uploadHeartRateData', () => {
+  it('记录不存在时应抛出 404', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue(null);
+    await expect(makeService().uploadHeartRateData('r1', [])).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('记录已结束时应抛出 400', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue({ id: 'r1', status: 'completed', startTime: new Date() } as any);
+    await expect(makeService().uploadHeartRateData('r1', [])).rejects.toMatchObject({ code: 400 });
+  });
+});
+
+// ==================== getRealTimeData ====================
+
+describe('getRealTimeData', () => {
+  it('记录不存在时应抛出 404', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue(null);
+    await expect(makeService().getRealTimeData('r1')).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('应返回实时运动指标', async () => {
+    const startTime = new Date(Date.now() - 60000);
+    mockRepository.getSportRecordById.mockResolvedValue({ id: 'r1', status: 'active', startTime } as any);
+    mockRepository.getGpsPointsByRecordId.mockResolvedValue([]);
+    mockRepository.getHeartRatesByRecordId.mockResolvedValue([{ heartRate: 150 }] as any);
+
+    const result = await makeService().getRealTimeData('r1');
+    expect(result.heartRate).toBe(150);
+    expect(result.duration).toBeGreaterThan(0);
+  });
+});
+
+// ==================== getSportRecordStats ====================
+
+describe('getSportRecordStats', () => {
+  it('记录不存在时应抛出 404', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue(null);
+    await expect(makeService().getSportRecordStats('r1')).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('应返回统计数据', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue({
+      id: 'r1', distance: 5000, duration: 1800, calories: 300,
+      averagePace: 360, maxHeartRate: 175, averageHeartRate: 155,
+    } as any);
+    mockRepository.getGpsPointsByRecordId.mockResolvedValue([]);
+    mockRepository.getHeartRatesByRecordId.mockResolvedValue([]);
+
+    const stats = await makeService().getSportRecordStats('r1');
+    expect(stats.totalDistance).toBe(5000);
+    expect(stats.averagePace).toBe(360);
+  });
+});
+
+// ==================== getUserSportStats ====================
+
+describe('getUserSportStats', () => {
+  it('无完成记录时应返回全零统计', async () => {
+    mockRepository.getSportRecordsByUserId.mockResolvedValue([
+      { status: 'active', distance: 1000, duration: 300, calories: 50 } as any,
+    ]);
+    const stats = await makeService().getUserSportStats('u1');
+    expect(stats.totalDistance).toBe(0);
+    expect(stats.totalCalories).toBe(0);
+  });
+
+  it('有完成记录时应正确聚合', async () => {
+    mockRepository.getSportRecordsByUserId.mockResolvedValue([
+      { status: 'completed', distance: 5000, duration: 1800, calories: 300, averagePace: 360, maxHeartRate: 175, averageHeartRate: 155 } as any,
+      { status: 'completed', distance: 8000, duration: 2700, calories: 480, averagePace: 337, maxHeartRate: 180, averageHeartRate: 160 } as any,
+    ]);
+
+    const stats = await makeService().getUserSportStats('u1');
+    expect(stats.totalDistance).toBe(13000);
+    expect(stats.totalCalories).toBe(780);
+    expect(stats.bestPace).toBe(337);
+  });
+});
+
+// ==================== getSportRecordById ====================
+
+describe('getSportRecordById', () => {
+  it('不存在时应抛出 404', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue(null);
+    await expect(makeService().getSportRecordById('bad')).rejects.toMatchObject({ code: 404 });
+  });
+
+  it('存在时应返回记录', async () => {
+    mockRepository.getSportRecordById.mockResolvedValue({ id: 'r1', status: 'completed' } as any);
+    const record = await makeService().getSportRecordById('r1');
+    expect(record.id).toBe('r1');
+  });
+});
