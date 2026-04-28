@@ -42,13 +42,16 @@ import java.util.Locale;
 
 public class Plan_details extends AppCompatActivity {
 
+    // 🌟 新增：暴露 BASE_URL 供测试修改
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
     private Handler mainHandler;
     private RecyclerView recyclerView;
     private PlanDetailAdapter adapter;
     private List<PlanDetailItem> planList = new ArrayList<>();
 
-    private String targetDay; // 目标星期
-    private String currentUserId; // 当前用户ID
+    private String targetDay;
+    private String currentUserId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,7 +68,7 @@ public class Plan_details extends AppCompatActivity {
 
         targetDay = getIntent().getStringExtra("DAY_NAME");
         if (targetDay == null) targetDay = "MONDAY";
-        int imageResId = getIntent().getIntExtra("IMAGE_RES_ID", R.drawable.moveup); // 默认占位图
+        int imageResId = getIntent().getIntExtra("IMAGE_RES_ID", R.drawable.moveup);
 
         TextView tvDayName = findViewById(R.id.tvDayName);
         ImageView headerImage = findViewById(R.id.headerImage);
@@ -75,34 +78,26 @@ public class Plan_details extends AppCompatActivity {
         findViewById(R.id.btnMenu).setOnClickListener(v -> finish());
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
 
-        // 配置 RecyclerView
         recyclerView = findViewById(R.id.recyclerPlanDetails);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new PlanDetailAdapter(planList);
         recyclerView.setAdapter(adapter);
 
-        // 处理列表项的长按删除事件
         adapter.setOnItemLongClickListener(position -> {
             showDeleteConfirmDialog(position);
         });
 
-        // 处理加号点击添加事件
         FloatingActionButton fabAdd = findViewById(R.id.fabAddPlan);
         fabAdd.setOnClickListener(v -> {
             showAddPlanDialog();
         });
 
-        // 获取用户ID
         SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
         currentUserId = prefs.getString("user_phone", "13800138000");
 
-        // 拉取初始数据
         fetchPlanDetails();
     }
 
-    /**
-     * 唤起系统原生时间选择器
-     */
     private void showTimePicker(TextView targetTextView) {
         Calendar calendar = Calendar.getInstance();
         int currentHour = calendar.get(Calendar.HOUR_OF_DAY);
@@ -115,15 +110,12 @@ public class Plan_details extends AppCompatActivity {
                     time.set(Calendar.MINUTE, minute);
                     SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", Locale.US);
                     targetTextView.setText(sdf.format(time.getTime()));
-                    targetTextView.setTextColor(Color.BLACK); // 选中后文字变黑
+                    targetTextView.setTextColor(Color.BLACK);
                 }, currentHour, currentMinute, false);
 
         timePickerDialog.show();
     }
 
-    /**
-     * 弹窗添加计划
-     */
     private void showAddPlanDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Add New Plan");
@@ -168,10 +160,9 @@ public class Plan_details extends AppCompatActivity {
             }
 
             if (end.contains("Tap to select")) {
-                end = ""; // 若未选择结束时间，则置空
+                end = "";
             }
 
-            // 🌟 调用新的上传方法，分别传入 start 和 end
             addPlanToServer(start, end, distance);
         });
 
@@ -190,13 +181,12 @@ public class Plan_details extends AppCompatActivity {
                 .show();
     }
 
-    // ==================== 网络请求部分 ====================
-
     private void fetchPlanDetails() {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                String urlString = "http://10.0.2.2:3000/v1/plan/details?user_id=" + currentUserId + "&day=" + targetDay;
+                // 🌟 修改点：动态拼接 BASE_URL
+                String urlString = BASE_URL + "/v1/plan/details?user_id=" + currentUserId + "&day=" + targetDay;
                 URL url = new URL(urlString);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
@@ -235,20 +225,17 @@ public class Plan_details extends AppCompatActivity {
         }).start();
     }
 
-    /**
-     * 🌟 修改：POST 时分别发送 start_time, end_time, day, distance
-     */
     private void addPlanToServer(String startTime, String endTime, String distance) {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/plan/details");
+                // 🌟 修改点：动态拼接 BASE_URL
+                URL url = new URL(BASE_URL + "/v1/plan/details");
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
 
-                // 将各个参数独立打包
                 JSONObject jsonBody = new JSONObject();
                 jsonBody.put("user_id", currentUserId);
                 jsonBody.put("day", targetDay);
@@ -263,7 +250,6 @@ public class Plan_details extends AppCompatActivity {
 
                 if (connection.getResponseCode() == 200) {
                     mainHandler.post(() -> {
-                        // 拼接好字符串以便在本地列表展示
                         String displayTime = startTime;
                         if (!endTime.isEmpty()) {
                             displayTime += " - " + endTime;
@@ -286,7 +272,8 @@ public class Plan_details extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/plan/details/delete");
+                // 🌟 修改点：动态拼接 BASE_URL
+                URL url = new URL(BASE_URL + "/v1/plan/details/delete");
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setDoOutput(true);

@@ -36,6 +36,9 @@ import java.util.List;
 
 public class clubterm extends AppCompatActivity {
 
+    // 🌟 新增：暴露 BASE_URL 供测试修改
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
     private String clubId;
     private String currentUserId;
     private boolean isJoined = false;
@@ -87,16 +90,15 @@ public class clubterm extends AppCompatActivity {
             }
         });
 
-        // ================= 新增：绑定侧滑菜单的点击跳转逻辑 =================
+        // ================= 绑定侧滑菜单的点击跳转逻辑 =================
         setupMenuClicks();
-        // =================================================================
+        // =============================================================
 
         RecyclerView recycler = findViewById(R.id.recyclerPosts);
         recycler.setLayoutManager(new LinearLayoutManager(this));
         fetchClubPosts();
     }
 
-    // 新增的方法：与 Main 保持一致的菜单跳转逻辑
     private void setupMenuClicks() {
         TextView menuHome = findViewById(R.id.menu_home);
         TextView menuHistory = findViewById(R.id.menu_history);
@@ -105,32 +107,32 @@ public class clubterm extends AppCompatActivity {
         TextView menuProfile = findViewById(R.id.menu_profile);
 
         // Home → 跳转回主页
-        menuHome.setOnClickListener(v -> {
+        if (menuHome != null) menuHome.setOnClickListener(v -> {
             startActivity(new Intent(clubterm.this, Main.class));
             finish();
         });
 
         // History
-        menuHistory.setOnClickListener(v -> {
+        if (menuHistory != null) menuHistory.setOnClickListener(v -> {
             startActivity(new Intent(clubterm.this, History.class));
             finish();
         });
 
         // Plan
-        menuPlan.setOnClickListener(v -> {
+        if (menuPlan != null) menuPlan.setOnClickListener(v -> {
             startActivity(new Intent(clubterm.this, Plan.class));
             finish();
         });
 
         // Club → 当前已在 Club 页面，直接关闭侧滑菜单即可
-        menuClub.setOnClickListener(v -> {
+        if (menuClub != null) menuClub.setOnClickListener(v -> {
             if (drawerLayout != null) {
                 drawerLayout.closeDrawers();
             }
         });
 
         // Profile → Mine
-        menuProfile.setOnClickListener(v -> {
+        if (menuProfile != null) menuProfile.setOnClickListener(v -> {
             startActivity(new Intent(clubterm.this, Mine.class));
             finish();
         });
@@ -139,7 +141,8 @@ public class clubterm extends AppCompatActivity {
     private void fetchClubPosts() {
         new Thread(() -> {
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/clubs/" + clubId + "/posts?user_id=" + currentUserId);
+                // 🌟 修改：使用 BASE_URL 拼接
+                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/posts?user_id=" + currentUserId);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
 
@@ -152,7 +155,7 @@ public class clubterm extends AppCompatActivity {
                     for (int i = 0; i < list.length(); i++) {
                         JSONObject p = list.getJSONObject(i);
 
-                        // 核心修改：解析 comments 里的 reply_to_name
+                        // 解析 comments 里的 reply_to_name
                         JSONArray cmts = p.optJSONArray("comments");
                         List<ClubComment> cList = new ArrayList<>();
                         if(cmts != null) {
@@ -213,7 +216,8 @@ public class clubterm extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/clubs/" + clubId + "?user_id=" + currentUserId);
+                // 🌟 修改：使用 BASE_URL 拼接
+                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "?user_id=" + currentUserId);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -251,7 +255,8 @@ public class clubterm extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/clubs/" + clubId + "/toggle");
+                // 🌟 修改：使用 BASE_URL 拼接
+                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/toggle");
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setConnectTimeout(5000);

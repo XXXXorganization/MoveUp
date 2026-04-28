@@ -28,7 +28,8 @@ import java.nio.charset.StandardCharsets;
 
 public class AItalk extends AppCompatActivity {
 
-    private static final String BACKEND_URL = "http://10.0.2.2:3000/v1/ai/chat";
+    // 🌟 核心修改：改为 public static 方便测试拦截
+    public static String BASE_URL = "http://10.0.2.2:3000/v1/ai/chat";
 
     private LinearLayout chatContainer;
     private ScrollView chatScrollView;
@@ -117,7 +118,6 @@ public class AItalk extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                // 纯文本格式直接传
                 JSONObject userMsgObj = new JSONObject();
                 userMsgObj.put("role", "user");
                 userMsgObj.put("content", userText);
@@ -127,12 +127,13 @@ public class AItalk extends AppCompatActivity {
                 requestBody.put("user_id", currentUserId);
                 requestBody.put("chat_history", chatHistory);
 
-                URL url = new URL(BACKEND_URL);
+                // 🌟 使用动态拼接的 URL
+                URL url = new URL(BASE_URL);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 connection.setDoOutput(true);
-                connection.setConnectTimeout(15000); // 纯文字秒连
+                connection.setConnectTimeout(15000);
                 connection.setReadTimeout(15000);
 
                 byte[] bytes = requestBody.toString().getBytes(StandardCharsets.UTF_8);

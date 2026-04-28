@@ -26,6 +26,9 @@ import java.net.URL;
 
 public class mine_edit extends AppCompatActivity {
 
+    // 🌟 新增这一行：设为 public static 方便测试代码动态修改
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
     private EditText etUsername;
     private EditText etEmail;
     private EditText etPhone;
@@ -75,7 +78,8 @@ public class mine_edit extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/user/profile?user_id=" + currentUserId);
+                // 🌟 修改点 1：使用 BASE_URL 拼接请求地址
+                URL url = new URL(BASE_URL + "/v1/user/profile?user_id=" + currentUserId);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -129,7 +133,8 @@ public class mine_edit extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/user/profile");
+                // 🌟 修改点 2：使用 BASE_URL 拼接请求地址
+                URL url = new URL(BASE_URL + "/v1/user/profile");
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("PUT");
                 connection.setDoOutput(true);
@@ -149,7 +154,11 @@ public class mine_edit extends AppCompatActivity {
 
                 if (connection.getResponseCode() == 200) {
                     mainHandler.post(() -> {
-                        Toast.makeText(mine_edit.this, "Profile Updated Successfully!", Toast.LENGTH_SHORT).show();
+                        // Toast 打印出上传的具体数据
+                        String toastMsg = String.format("资料更新成功！\n新昵称: %s\n新邮箱: %s\n新密码: %s",
+                                newUsername, newEmail, newPassword);
+                        Toast.makeText(mine_edit.this, toastMsg, Toast.LENGTH_LONG).show();
+
                         finish(); // 更新成功后自动关闭页面，返回上一页
                     });
                 } else {

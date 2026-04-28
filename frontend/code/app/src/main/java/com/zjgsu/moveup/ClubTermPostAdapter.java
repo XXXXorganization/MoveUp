@@ -33,6 +33,9 @@ import java.util.List;
 
 public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapter.PostViewHolder> {
 
+    // 🌟 核心修复：添加 public static 的 BASE_URL，供测试代码动态拦截
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
     private final List<ClubTermPost> posts;
     private final String currentUserId;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -64,15 +67,15 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
         // 渲染点赞状态
         holder.tvLikeCount.setText(post.likeCount + " likes");
         if (post.isLiked) {
-            holder.ivLike.setColorFilter(Color.parseColor("#E91E63")); // 点赞后变成粉红色
+            holder.ivLike.setColorFilter(Color.parseColor("#E91E63"));
         } else {
-            holder.ivLike.setColorFilter(Color.parseColor("#8B8B8B")); // 未点赞灰色
+            holder.ivLike.setColorFilter(Color.parseColor("#8B8B8B"));
         }
 
         // 1. 点赞点击事件
         holder.ivLike.setOnClickListener(v -> toggleLike(post, position));
 
-        // 2. 渲染评论区 (美化版，带@被回复者名字)
+        // 2. 渲染评论区
         holder.llCommentsList.removeAllViews();
         if (post.comments != null) {
             for (ClubComment c : post.comments) {
@@ -84,8 +87,6 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                 params.setMargins(0, 4, 0, 4);
                 tv.setLayoutParams(params);
 
-                // 🌟 使用 HTML 渲染 @被回复人 的效果
-                // 🌟 核心修改：增加对 "null" 字符串的判断，防止直接评论时显示 @null
                 String text = "<b><font color='#222222'>" + c.author + "</font></b>  ";
                 if (c.replyToId != null && !c.replyToId.isEmpty() && !c.replyToId.equals("null") &&
                         c.replyToName != null && !c.replyToName.isEmpty() && !c.replyToName.equals("null")) {
@@ -94,7 +95,6 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                 text += "<font color='#4F4F4F'>" + c.content + "</font>";
                 tv.setText(Html.fromHtml(text, Html.FROM_HTML_MODE_LEGACY));
 
-                // 点击单条评论进入回复状态
                 tv.setOnClickListener(v -> {
                     holder.etCommentInput.setHint("Reply to " + c.author + "...");
                     holder.etCommentInput.setTag(c.id);
@@ -106,12 +106,11 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
             }
         }
 
-        // 3. 🌟 点击卡片非评论区域 (空白处)：重置为“直接评论”状态
+        // 3. 点击卡片非评论区域
         holder.itemView.setOnClickListener(v -> {
             holder.etCommentInput.setTag(null);
             holder.etCommentInput.setHint("Add a comment...");
             holder.etCommentInput.clearFocus();
-            // 隐藏软键盘
             InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
             if (imm != null) imm.hideSoftInputFromWindow(holder.etCommentInput.getWindowToken(), 0);
         });
@@ -144,7 +143,8 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
     private void toggleLike(ClubTermPost post, int position) {
         new Thread(() -> {
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/posts/" + post.id + "/like");
+                // 🌟 修改点：动态拼接 BASE_URL
+                URL url = new URL(BASE_URL + "/v1/posts/" + post.id + "/like");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
@@ -176,7 +176,8 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
     private void sendComment(ClubTermPost post, String content, String replyToId, int position, EditText inputField) {
         new Thread(() -> {
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/posts/" + post.id + "/comment");
+                // 🌟 修改点：动态拼接 BASE_URL
+                URL url = new URL(BASE_URL + "/v1/posts/" + post.id + "/comment");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
@@ -209,7 +210,7 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                                 obj.getString("content"),
                                 obj.getString("time"),
                                 obj.optString("reply_to_id", null),
-                                obj.optString("reply_to_name", null) // 🌟 获取后台传回来的被回复者姓名
+                                obj.optString("reply_to_name", null)
                         ));
                     }
                     post.comments = newComments;
@@ -217,7 +218,7 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                     mainHandler.post(() -> {
                         inputField.setText("");
                         inputField.setHint("Add a comment...");
-                        inputField.setTag(null); // 发送完毕后自动重置为直接评论状态
+                        inputField.setTag(null);
 
                         InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
                         if (imm != null) imm.hideSoftInputFromWindow(inputField.getWindowToken(), 0);
