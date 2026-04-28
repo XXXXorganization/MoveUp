@@ -6,6 +6,8 @@
 [![Backend Coverage](https://codecov.io/gh/XXXXorganization/MoveUp/branch/main/graph/badge.svg?flag=backend)](https://codecov.io/gh/XXXXorganization/MoveUp)
 
 [![Frontend Coverage](https://codecov.io/gh/XXXXorganization/MoveUp/branch/main/graph/badge.svg?flag=frontend)](https://codecov.io/gh/XXXXorganization/MoveUp)
+
+
 这是一个关于运动跑步的软件
 ## 团队成员
 | 姓名 | 学号 | 分工 |
