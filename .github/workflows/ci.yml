@@ -72,18 +72,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: gradle
+          
       - name: Grant execute permission for gradlew
-        working-directory: ./frontend/code 
+        # 🌟 修改 1：进入 code 文件夹
+        working-directory: ./frontend/code
         run: chmod +x gradlew
+        
       - name: Run Android Tests & Generate Report
-        working-directory: ./frontend/code 
-        # 🌟 核心修改：明确指定跑 app 模块下的测试和 Jacoco 任务
-        run: ./gradlew :app:jacocoTestReport -x test
+        # 🌟 修改 2：进入 code 文件夹
+        working-directory: ./frontend/code
+        run: ./gradlew :app:testDebugUnitTest :app:jacocoTestReport
+        
       - name: Upload Frontend Coverage
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          # 🌟 确保路径包含了 frontend/ 前缀
-          files: frontend/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          # 🌟 修改 3：确保读取 XML 的路径加上了 code/ 层级
+          files: frontend/code/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
           flags: frontend
           name: moveup-frontend

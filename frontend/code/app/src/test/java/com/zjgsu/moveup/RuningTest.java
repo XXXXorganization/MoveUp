@@ -1,27 +1,22 @@
 package com.zjgsu.moveup;
 
 import android.Manifest;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 
 import com.amap.api.location.AMapLocation;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowToast;
@@ -30,7 +25,6 @@ import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
-import okhttp3.mockwebserver.SocketPolicy;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -130,12 +124,14 @@ public class RuningTest {
 
     @Test
     public void testAskAI_NetworkFailure_CatchBranch() throws Exception {
-        // 🌟 覆盖 catch (Exception e) 分支：模拟真实的 Socket 超时/连接失败
-        mockWebServer.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START));
+        // 🌟 终极修复：彻底抛弃有版本冲突的 SocketPolicy
+        // 直接塞给它一个不存在的域名，HttpURLConnection 自然会抛出 UnknownHostException 完美进入 catch
+        String originalUrl = Runing.BASE_URL;
+        Runing.BASE_URL = "http://invalid-domain.moveup.test";
 
         Runing activity = Robolectric.buildActivity(Runing.class).setup().get();
 
-        // 使用反射强行调用私有方法 askAI 以提高分支覆盖率
+        // 使用反射强行调用私有方法 askAI
         java.lang.reflect.Method askAI = Runing.class.getDeclaredMethod("askAI", String.class);
         askAI.setAccessible(true);
         askAI.invoke(activity, "你好");
@@ -143,7 +139,9 @@ public class RuningTest {
         // 给异步 catch 逻辑一点时间执行
         Thread.sleep(300);
         Robolectric.flushForegroundThreadScheduler();
-        // 只要没崩溃且跑过了 catch 分支即达标
+
+        // 恢复原始 URL 避免污染其他测试
+        Runing.BASE_URL = originalUrl;
     }
 
     // ==========================================
