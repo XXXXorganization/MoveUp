@@ -77,12 +77,14 @@ jobs:
         run: chmod +x gradlew
       - name: Run Android Tests & Generate Report
         working-directory: ./frontend 
+        # 🌟 核心修改：明确指定跑 app 模块下的测试和 Jacoco 任务
+        run: ./gradlew :app:testDebugUnitTest :app:jacocoTestReport
         run: ./gradlew testDebugUnitTest jacocoTestReport
       - name: Upload Frontend Coverage
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          # 指向 Jacoco 生成的 XML 报告
-          files: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          # 🌟 确保路径包含了 frontend/ 前缀
+          files: frontend/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
           flags: frontend
           name: moveup-frontend
