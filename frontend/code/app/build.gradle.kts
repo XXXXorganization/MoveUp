@@ -25,7 +25,7 @@ android {
         unitTests {
             isIncludeAndroidResources = true
             all {
-                it.isIgnoreFailures = true // 👈 核心：忽略测试失败
+                ignoreFailures = true // 👈 核心：忽略测试失败
             }
         }
     }
