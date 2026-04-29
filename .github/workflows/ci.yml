@@ -79,7 +79,6 @@ jobs:
         working-directory: ./frontend 
         # 🌟 核心修改：明确指定跑 app 模块下的测试和 Jacoco 任务
         run: ./gradlew :app:testDebugUnitTest :app:jacocoTestReport
-        run: ./gradlew testDebugUnitTest jacocoTestReport
       - name: Upload Frontend Coverage
         uses: codecov/codecov-action@v4
         with:
