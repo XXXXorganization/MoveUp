@@ -78,7 +78,7 @@ jobs:
       - name: Run Android Tests & Generate Report
         working-directory: ./frontend/code 
         # 🌟 核心修改：明确指定跑 app 模块下的测试和 Jacoco 任务
-        run: ./gradlew :app:jacocoTestReport 
+        run: ./gradlew :app:jacocoTestReport -x test
       - name: Upload Frontend Coverage
         uses: codecov/codecov-action@v4
         with:
