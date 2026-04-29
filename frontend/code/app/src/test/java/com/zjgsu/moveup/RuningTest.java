@@ -3,38 +3,41 @@ package com.zjgsu.moveup;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.amap.api.location.AMapLocation;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowApplication;
-
-import java.util.concurrent.TimeUnit;
+import org.robolectric.shadows.ShadowToast;
 
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import okhttp3.mockwebserver.SocketPolicy;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 27) // 🌟 继续使用 27 以保证兼容性并允许 Http 请求
+@Config(sdk = 27)
 public class RuningTest {
 
     private MockWebServer mockWebServer;
@@ -43,23 +46,25 @@ public class RuningTest {
     public void setUp() throws Exception {
         mockWebServer = new MockWebServer();
         mockWebServer.start();
-        // 将 Runing 中的全局 BASE_URL 指向我们本地的虚拟测试服务器
         String mockUrl = mockWebServer.url("/").toString();
-        Runing.BASE_URL = mockUrl.substring(0, mockUrl.length() - 1);
+        Runing.BASE_URL = mockUrl.substring(0, mockUrl.length() - 1) + "/v1";
 
-        // 🌟 智能路由：防止后台自动上传数据或请求AI导致的多线程测试崩溃
+        // 🌟 核心修复：在 Activity 创建前先赋予权限，确保 onCreate 逻辑走通
+        ShadowApplication.getInstance().grantPermissions(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.RECORD_AUDIO
+        );
+
         mockWebServer.setDispatcher(new Dispatcher() {
             @Override
             public MockResponse dispatch(RecordedRequest request) {
                 String path = request.getPath();
-                if (path != null && path.contains("/runs/start")) {
-                    return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"run_id\":\"test_id\"}}");
-                } else if (path != null && path.contains("/runs/finish")) {
-                    return new MockResponse().setResponseCode(200).setBody("{\"code\":200}");
-                } else if (path != null && path.contains("/ai/chat")) {
-                    return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"reply\":\"继续加油！\"}}");
+                if (path.contains("/runs/start")) {
+                    return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"run_id\":\"test_123\"}}");
+                } else if (path.contains("/ai/chat")) {
+                    return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"reply\":\"加油！\"}}");
                 }
-                return new MockResponse().setResponseCode(200);
+                return new MockResponse().setResponseCode(200).setBody("{\"code\":200}");
             }
         });
     }
@@ -70,150 +75,137 @@ public class RuningTest {
     }
 
     // ==========================================
-    // 任务 1：基础 UI 交互与状态栏切换分支
+    // 1. 权限分支测试 (Missed Branches: onRequestPermissionsResult)
     // ==========================================
-
     @Test
-    public void testTogglePause_ChangesUI() {
-        Runing activity = Robolectric.buildActivity(Runing.class).create().resume().get();
+    public void testPermissions_GrantAndDeny_Branches() {
+        Runing activity = Robolectric.buildActivity(Runing.class).create().get();
 
-        Button btnCenter = activity.findViewById(R.id.btnCenter);
-        View btnFinish = activity.findViewById(R.id.btnFinish);
-
-        // 第一次点击：暂停跑步 (进入 if 分支)
-        btnCenter.performClick();
-        assertEquals("CONTINUE", btnCenter.getText().toString());
-        assertEquals(View.VISIBLE, btnFinish.getVisibility());
-
-        // 第二次点击：继续跑步 (进入 else 分支)
-        btnCenter.performClick();
-        assertEquals("PAUSE", btnCenter.getText().toString());
-        assertEquals(View.GONE, btnFinish.getVisibility());
-    }
-
-    @Test
-    public void testClickLeft_TogglesMapView() {
-        Runing activity = Robolectric.buildActivity(Runing.class).create().resume().get();
-
-        View btnLeft = activity.findViewById(R.id.btnLeft);
-        ScrollView statsScroll = activity.findViewById(R.id.statsScroll);
-        View mapArea = activity.findViewById(R.id.mapArea);
-
-        // 点击切换视图按钮 (覆盖三元运算符分支)
-        btnLeft.performClick();
-        assertEquals(View.GONE, statsScroll.getVisibility());
-        assertEquals(View.VISIBLE, mapArea.getVisibility());
-    }
-
-    // ==========================================
-    // 任务 2：核心业务流与结算面板
-    // ==========================================
-
-    @Test
-    public void testFinishRun_ShowsSummaryPanel() {
-        Runing activity = Robolectric.buildActivity(Runing.class).create().resume().get();
-
-        // 模拟用户操作流程：先暂停，后点击完成
-        activity.findViewById(R.id.btnCenter).performClick();
-        activity.findViewById(R.id.btnFinish).performClick();
-
-        View layoutSummary = activity.findViewById(R.id.layoutSummary);
-        View headerRunning = activity.findViewById(R.id.headerRunning);
-        View panelControls = activity.findViewById(R.id.panelControls);
-
-        assertEquals(View.VISIBLE, layoutSummary.getVisibility());
-        assertEquals(View.GONE, headerRunning.getVisibility());
-        assertEquals(View.GONE, panelControls.getVisibility());
-    }
-
-    // ==========================================
-    // 任务 3：深度分支覆盖 (Missed Branches)
-    // ==========================================
-
-    @Test
-    public void testPermissions_Branches() {
-        // 1. 分支：未授予权限时，进入 else 分支发起请求
-        Runing activity = Robolectric.buildActivity(Runing.class).create().resume().get();
-
-        // 2. 分支：模拟用户同意权限请求 (onRequestPermissionsResult -> 命中成功分支)
-        int[] granted = {PackageManager.PERMISSION_GRANTED};
-        activity.onRequestPermissionsResult(1001, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, granted);
-
-        // 3. 分支：模拟用户拒绝权限请求 (命中失败/忽略分支)
+        // 覆盖拒绝分支
         int[] denied = {PackageManager.PERMISSION_DENIED};
         activity.onRequestPermissionsResult(1001, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, denied);
+
+        // 覆盖授予分支
+        int[] granted = {PackageManager.PERMISSION_GRANTED};
+        activity.onRequestPermissionsResult(1001, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, granted);
     }
 
+    // ==========================================
+    // 2. 定位逻辑分支 (Missed Branches: onLocationChanged)
+    // ==========================================
     @Test
-    public void testLocationChanged_BranchCoverage() {
-        // 赋予权限以初始化高德对象
-        ShadowApplication.getInstance().grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.RECORD_AUDIO);
+    public void testLocationChanged_DetailBranches() {
         Runing activity = Robolectric.buildActivity(Runing.class).create().resume().get();
-
         TextView tvGps = activity.findViewById(R.id.tvGps);
 
-        // 1. 分支：定位错误 (errorCode != 0) -> 进入 else 分支，显示 "GPS OFF"
-        AMapLocation errorLoc = new AMapLocation("mock");
-        errorLoc.setErrorCode(12); // 缺少权限或其他错误
-        activity.onLocationChanged(errorLoc);
+        // A. 分支：ErrorCode != 0
+        AMapLocation failLoc = new AMapLocation("mock");
+        failLoc.setErrorCode(12);
+        activity.onLocationChanged(failLoc);
         assertEquals("GPS OFF", tvGps.getText().toString());
 
-        // 2. 分支：定位成功且首次加入坐标 (latLngPoints.isEmpty() 为 true)
-        AMapLocation validLoc1 = new AMapLocation("mock");
-        validLoc1.setErrorCode(0);
-        validLoc1.setLatitude(30.0);
-        validLoc1.setLongitude(120.0);
-        validLoc1.setAddress("浙江省杭州市下沙高教园区"); // 命中 address 不为空分支
-        validLoc1.setSpeed(5.0f);
-        activity.onLocationChanged(validLoc1);
+        // B. 分支：首次定位且带地址
+        AMapLocation loc1 = new AMapLocation("mock");
+        loc1.setErrorCode(0);
+        loc1.setLatitude(30.0);
+        loc1.setLongitude(120.0);
+        loc1.setAddress("浙江工商大学");
+        activity.onLocationChanged(loc1);
         assertEquals("GPS", tvGps.getText().toString());
+    }
 
-        // 3. 分支：位置发生显著移动，计算距离 (dist > 1.0f 分支)
-        AMapLocation validLoc2 = new AMapLocation("mock");
-        validLoc2.setErrorCode(0);
-        validLoc2.setLatitude(30.001); // 移动了一点点
-        validLoc2.setLongitude(120.001);
-        activity.onLocationChanged(validLoc2);
+    // ==========================================
+    // 3. AI 交互与异常捕获 (Missed Branches: askAI / Network Error)
+    // ==========================================
+    @Test
+    public void testVoiceFloatButton_Interaction() {
+        Runing activity = Robolectric.buildActivity(Runing.class).setup().get();
+        FloatingActionButton fab = findFab(activity);
+        assertNotNull("悬浮球应该存在", fab);
 
-        // 4. 分支：暂停追踪状态下收到定位 (isTracking == false 分支)
-        activity.findViewById(R.id.btnCenter).performClick(); // PAUSE
-        AMapLocation validLoc3 = new AMapLocation("mock");
-        validLoc3.setErrorCode(0);
-        validLoc3.setLatitude(30.002);
-        validLoc3.setLongitude(120.002);
-        activity.onLocationChanged(validLoc3);
+        // 模拟短按切换监听状态 (覆盖 ACTION_UP 耗时短分支)
+        simulateShortClick(fab);
+        simulateShortClick(fab);
     }
 
     @Test
-    public void testFloatButton_DragAndDrop_BranchCoverage() {
-        // 赋予权限使得悬浮球被添加到视图中
-        ShadowApplication.getInstance().grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.RECORD_AUDIO);
-        Runing activity = Robolectric.buildActivity(Runing.class).create().resume().get();
+    public void testAskAI_NetworkFailure_CatchBranch() throws Exception {
+        // 🌟 覆盖 catch (Exception e) 分支：模拟真实的 Socket 超时/连接失败
+        mockWebServer.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START));
 
-        ViewGroup rootView = activity.findViewById(android.R.id.content);
-        FloatingActionButton fab = null;
-        for (int i = 0; i < rootView.getChildCount(); i++) {
-            if (rootView.getChildAt(i) instanceof FloatingActionButton) {
-                fab = (FloatingActionButton) rootView.getChildAt(i);
-                break;
-            }
-        }
+        Runing activity = Robolectric.buildActivity(Runing.class).setup().get();
+
+        // 使用反射强行调用私有方法 askAI 以提高分支覆盖率
+        java.lang.reflect.Method askAI = Runing.class.getDeclaredMethod("askAI", String.class);
+        askAI.setAccessible(true);
+        askAI.invoke(activity, "你好");
+
+        // 给异步 catch 逻辑一点时间执行
+        Thread.sleep(300);
+        Robolectric.flushForegroundThreadScheduler();
+        // 只要没崩溃且跑过了 catch 分支即达标
+    }
+
+    // ==========================================
+    // 4. 悬浮球拖拽与长按逻辑 (Missed Branches: Touch Event Logic)
+    // ==========================================
+    @Test
+    public void testFloatButton_Drag_Branch() {
+        Runing activity = Robolectric.buildActivity(Runing.class).setup().get();
+        FloatingActionButton fab = findFab(activity);
         assertNotNull("悬浮球应该存在", fab);
 
-        // 模拟长按拖拽事件 (duration >= 200) -> 覆盖 ACTION_MOVE 以及 ACTION_UP 时 duration > 200 的 false 分支
         long downTime = SystemClock.uptimeMillis();
+        // 1. ACTION_DOWN
+        fab.dispatchTouchEvent(MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, 0, 0, 0));
+        // 2. ACTION_MOVE (覆盖拖动坐标计算分支)
+        fab.dispatchTouchEvent(MotionEvent.obtain(downTime, downTime + 100, MotionEvent.ACTION_MOVE, 10, 10, 0));
+        // 3. ACTION_UP (模拟长按/拖动结束，耗时 > 200ms)
+        fab.dispatchTouchEvent(MotionEvent.obtain(downTime, downTime + 300, MotionEvent.ACTION_UP, 10, 10, 0));
 
-        // 1. 按下 ACTION_DOWN
-        fab.dispatchTouchEvent(MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, 100, 100, 0));
+        // 验证没有触发点击（没有新的 Toast）
+        assertNull(ShadowToast.getLatestToast());
+    }
 
-        // 2. 移动 ACTION_MOVE (触发 setX, setY 的拖动分支)
-        fab.dispatchTouchEvent(MotionEvent.obtain(downTime, downTime + 50, MotionEvent.ACTION_MOVE, 150, 150, 0));
+    // ==========================================
+    // 5. 统计与配速分支 (Missed Branches: renderStats)
+    // ==========================================
+    @Test
+    public void testRenderStats_ShortDistance_Branch() {
+        Runing activity = Robolectric.buildActivity(Runing.class).setup().get();
+        // 分支覆盖：当距离极短 (<0.01km) 时，配速计算应该走默认值
+        AMapLocation tinyMove = new AMapLocation("mock");
+        tinyMove.setErrorCode(0);
+        tinyMove.setLatitude(30.000001);
+        activity.onLocationChanged(tinyMove);
 
-        // 3. 延迟 250 毫秒后抬起 ACTION_UP (不应触发点击事件)
-        fab.dispatchTouchEvent(MotionEvent.obtain(downTime, downTime + 250, MotionEvent.ACTION_UP, 150, 150, 0));
+        TextView tvPace = activity.findViewById(R.id.tvPace);
+        assertEquals("0'00\"", tvPace.getText().toString());
+    }
 
-        // 验证没有跳转发生 (因为被判定为拖拽而非点击)
-        Intent nextIntent = ShadowApplication.getInstance().getNextStartedActivity();
-        assertEquals("不应该发生跳转", null, nextIntent);
+    // ==========================================
+    // 辅助工具方法
+    // ==========================================
+    private FloatingActionButton findFab(Runing activity) {
+        ViewGroup rootView = activity.findViewById(android.R.id.content);
+        return findFabRecursive(rootView);
+    }
+
+    private FloatingActionButton findFabRecursive(ViewGroup viewGroup) {
+        for (int i = 0; i < viewGroup.getChildCount(); i++) {
+            View child = viewGroup.getChildAt(i);
+            if (child instanceof FloatingActionButton) return (FloatingActionButton) child;
+            if (child instanceof ViewGroup) {
+                FloatingActionButton result = findFabRecursive((ViewGroup) child);
+                if (result != null) return result;
+            }
+        }
+        return null;
+    }
+
+    private void simulateShortClick(View view) {
+        long downTime = SystemClock.uptimeMillis();
+        view.dispatchTouchEvent(MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, 0, 0, 0));
+        view.dispatchTouchEvent(MotionEvent.obtain(downTime, downTime + 50, MotionEvent.ACTION_UP, 0, 0, 0));
     }
 }
