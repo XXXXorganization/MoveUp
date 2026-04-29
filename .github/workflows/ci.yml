@@ -81,6 +81,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           # 指向 Jacoco 生成的 XML 报告
-          files: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          files: frontend/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
           flags: frontend
           name: moveup-frontend
