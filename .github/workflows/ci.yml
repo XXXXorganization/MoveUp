@@ -73,14 +73,16 @@ jobs:
           distribution: 'temurin'
           cache: gradle
       - name: Grant execute permission for gradlew
+        working-directory: ./frontend 
         run: chmod +x gradlew
       - name: Run Android Tests & Generate Report
+        working-directory: ./frontend 
         run: ./gradlew testDebugUnitTest jacocoTestReport
       - name: Upload Frontend Coverage
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           # 指向 Jacoco 生成的 XML 报告
-          files: frontend/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          files: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
           flags: frontend
           name: moveup-frontend
