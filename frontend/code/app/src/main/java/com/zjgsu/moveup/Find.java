@@ -33,6 +33,9 @@ import java.util.List;
 
 public class Find extends AppCompatActivity {
 
+    // 🌟 核心修改点：暴露 BASE_URL，方便测试框架拦截和动态修改
+    public static String BASE_URL = "http://10.0.2.2:3000/v1";
+
     private RecyclerView rvFindClubs;
     private ClubAdapter adapter;
     private List<Club> clubList;
@@ -80,7 +83,8 @@ public class Find extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                String urlString = "http://10.0.2.2:3000/v1/clubs";
+                // 🌟 修改点：使用 BASE_URL 动态拼接地址
+                String urlString = BASE_URL + "/clubs";
                 if (!keyword.isEmpty()) {
                     urlString += "?q=" + URLEncoder.encode(keyword, "UTF-8");
                 }
@@ -107,13 +111,13 @@ public class Find extends AppCompatActivity {
                             for (int i = 0; i < listArray.length(); i++) {
                                 JSONObject obj = listArray.getJSONObject(i);
 
-                                // 🌟 提取后端的 ID
+                                // 提取后端的 ID
                                 String id = obj.optString("id", "");
                                 String name = obj.optString("name");
                                 String location = obj.optString("location");
                                 String flag = obj.optString("flag", "🇨🇳");
 
-                                // 🌟 传入构造函数中
+                                // 传入构造函数中
                                 tempNewList.add(new Club(id, name, location, R.drawable.moveup, flag));
                             }
                         }

@@ -26,6 +26,9 @@ import java.net.URL;
 
 public class Mine extends AppCompatActivity {
 
+    // 🌟 新增这一行：设为 public static 方便测试代码动态修改
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
     private TextView tvUsernameValue;
     private TextView tvEmailValue;
     private TextView tvPhoneValue;
@@ -34,7 +37,7 @@ public class Mine extends AppCompatActivity {
     private Handler mainHandler;
     private String currentUserId;
 
-    // 🌟 新增：定义侧边栏容器
+    // 定义侧边栏容器
     private DrawerLayout drawerLayout;
 
     @Override
@@ -51,7 +54,7 @@ public class Mine extends AppCompatActivity {
 
         mainHandler = new Handler(Looper.getMainLooper());
 
-        // 🌟 初始化侧边栏容器
+        // 初始化侧边栏容器
         drawerLayout = findViewById(R.id.drawerLayout);
 
         // 绑定 UI 元素
@@ -63,17 +66,17 @@ public class Mine extends AppCompatActivity {
         findViewById(R.id.btnEditProfile).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // 2. 使用 Intent 从当前的 Mine 界面跳转到 mine_edit 界面
+                // 使用 Intent 从当前的 Mine 界面跳转到 mine_edit 界面
                 Intent intent = new Intent(Mine.this, mine_edit.class);
                 startActivity(intent);
             }
         });
-        // 🌟 核心修改：将原本的 btnBack 点击事件改为打开侧边栏
+
         if (findViewById(R.id.btnBack) != null) {
             findViewById(R.id.btnBack).setOnClickListener(v -> drawerLayout.openDrawer(findViewById(R.id.drawerMenu)));
         }
 
-        // 🌟 初始化侧边栏菜单跳转逻辑
+        // 初始化侧边栏菜单跳转逻辑
         setupMenuClicks();
 
         SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
@@ -83,7 +86,7 @@ public class Mine extends AppCompatActivity {
     }
 
     /**
-     * 🌟 新增：与 Main 页面完全一致的侧边栏跳转逻辑
+     * 与 Main 页面完全一致的侧边栏跳转逻辑
      */
     private void setupMenuClicks() {
         if (findViewById(R.id.menu_home) != null) {
@@ -112,7 +115,6 @@ public class Mine extends AppCompatActivity {
         }
         if (findViewById(R.id.menu_profile) != null) {
             findViewById(R.id.menu_profile).setOnClickListener(v -> {
-                // 由于已经在当前页面，点击只需要收起侧边栏即可
                 drawerLayout.closeDrawers();
             });
         }
@@ -124,12 +126,12 @@ public class Mine extends AppCompatActivity {
         fetchUserProfile();
     }
 
-
     private void fetchUserProfile() {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/user/profile?user_id=" + currentUserId);
+                // 🌟 修改点：使用 BASE_URL 拼接请求地址
+                URL url = new URL(BASE_URL + "/v1/user/profile?user_id=" + currentUserId);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);

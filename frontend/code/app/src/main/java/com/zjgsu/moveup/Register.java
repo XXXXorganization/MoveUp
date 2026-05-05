@@ -1,13 +1,18 @@
 package com.zjgsu.moveup;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.method.HideReturnsTransformationMethod;
+import android.text.method.PasswordTransformationMethod;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -26,11 +31,17 @@ import java.net.URL;
 
 public class Register extends AppCompatActivity {
 
+    // 🌟 新增这一行，设为 public static 方便测试代码动态修改
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
     private EditText etPhone;
     private EditText etUsername;
     private EditText etPassword;
     private EditText etConfirmPwd;
     private Handler mainHandler;
+
+    private boolean isPwd1Visible = false;
+    private boolean isConfirmPwdVisible = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,14 +56,59 @@ public class Register extends AppCompatActivity {
 
         mainHandler = new Handler(Looper.getMainLooper());
 
-        // 1. 绑定视图
         etPhone = findViewById(R.id.et_phone1);
         etUsername = findViewById(R.id.et_username1);
         etPassword = findViewById(R.id.et_password1);
         etConfirmPwd = findViewById(R.id.et_confirm_pwd1);
         Button registerBtn = findViewById(R.id.btn_register_confirm1);
+        View btnBack = findViewById(R.id.btn_back);
 
-        // 2. 设置按钮点击事件
+        ImageView ivEyePwd1 = findViewById(R.id.iv_eye_pwd1);
+        ImageView ivEyeConfirm = findViewById(R.id.iv_eye_confirm_pwd1);
+
+        // 🌟 1. 设置主密码可视/隐藏逻辑
+        ivEyePwd1.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isPwd1Visible = !isPwd1Visible;
+                if (isPwd1Visible) {
+                    etPassword.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
+                    ivEyePwd1.setColorFilter(Color.parseColor("#C7FB58"));
+                } else {
+                    etPassword.setTransformationMethod(PasswordTransformationMethod.getInstance());
+                    ivEyePwd1.setColorFilter(Color.parseColor("#888888"));
+                }
+                etPassword.setSelection(etPassword.getText().length());
+            }
+        });
+
+        // 🌟 2. 设置确认密码可视/隐藏逻辑
+        ivEyeConfirm.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isConfirmPwdVisible = !isConfirmPwdVisible;
+                if (isConfirmPwdVisible) {
+                    etConfirmPwd.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
+                    ivEyeConfirm.setColorFilter(Color.parseColor("#C7FB58"));
+                } else {
+                    etConfirmPwd.setTransformationMethod(PasswordTransformationMethod.getInstance());
+                    ivEyeConfirm.setColorFilter(Color.parseColor("#888888"));
+                }
+                etConfirmPwd.setSelection(etConfirmPwd.getText().length());
+            }
+        });
+
+        if (btnBack != null) {
+            btnBack.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(Register.this, Start.class);
+                    startActivity(intent);
+                    finish();
+                }
+            });
+        }
+
         registerBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -61,7 +117,6 @@ public class Register extends AppCompatActivity {
                 String password = etPassword.getText().toString().trim();
                 String confirmPwd = etConfirmPwd.getText().toString().trim();
 
-                // 基础校验
                 if (phone.isEmpty() || username.isEmpty() || password.isEmpty() || confirmPwd.isEmpty()) {
                     Toast.makeText(Register.this, "请填写所有注册信息", Toast.LENGTH_SHORT).show();
                     return;
@@ -72,22 +127,19 @@ public class Register extends AppCompatActivity {
                     return;
                 }
 
-                // 发起网络请求
                 doRegisterRequest(phone, username, password);
             }
         });
     }
 
-    /**
-     * 调用后端注册接口
-     */
     private void doRegisterRequest(final String phone, final String username, final String password) {
         new Thread(new Runnable() {
             @Override
             public void run() {
                 HttpURLConnection connection = null;
                 try {
-                    URL url = new URL("http://10.0.2.2:3000/v1/auth/register");
+                    // 🌟 修改点：将写死的地址改为使用 BASE_URL 拼接
+                    URL url = new URL(BASE_URL + "/v1/auth/register");
                     connection = (HttpURLConnection) url.openConnection();
                     connection.setRequestMethod("POST");
                     connection.setConnectTimeout(5000);
@@ -95,7 +147,6 @@ public class Register extends AppCompatActivity {
                     connection.setDoOutput(true);
                     connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
 
-                    // 构造发送给后端的 JSON
                     JSONObject jsonBody = new JSONObject();
                     jsonBody.put("phone", phone);
                     jsonBody.put("username", username);
@@ -134,8 +185,6 @@ public class Register extends AppCompatActivity {
                         } catch (Exception e) {
                             Log.e("API_TEST", "JSON解析错误: " + e.getMessage());
                         }
-                    } else {
-                        Log.e("API_TEST", "请求失败，网络状态码: " + httpCode);
                     }
 
                     final boolean success = tempSuccess;
@@ -146,7 +195,16 @@ public class Register extends AppCompatActivity {
                         public void run() {
                             Toast.makeText(Register.this, toastMsg, Toast.LENGTH_SHORT).show();
                             if (success) {
-                                // 注册成功后，关闭当前页面回到登录页
+                                // 🌟 3. 注册成功时，直接把刚才填的账号密码写进本地配置中
+                                // 这样跳转回 Login 页面时就自动填好了
+                                SharedPreferences localPrefs = getSharedPreferences("Local_History", MODE_PRIVATE);
+                                localPrefs.edit()
+                                        .putString("saved_phone", phone)
+                                        .putString("saved_password", password)
+                                        .apply();
+
+                                Intent intent = new Intent(Register.this, Login.class);
+                                startActivity(intent);
                                 finish();
                             }
                         }
@@ -157,13 +215,10 @@ public class Register extends AppCompatActivity {
                         @Override
                         public void run() {
                             Toast.makeText(Register.this, "网络连接异常，请检查网络", Toast.LENGTH_SHORT).show();
-                            Log.e("API_TEST", "网络异常", e);
                         }
                     });
                 } finally {
-                    if (connection != null) {
-                        connection.disconnect();
-                    }
+                    if (connection != null) connection.disconnect();
                 }
             }
         }).start();

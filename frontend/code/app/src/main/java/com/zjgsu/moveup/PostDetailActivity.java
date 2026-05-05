@@ -29,6 +29,9 @@ import java.util.List;
 
 public class PostDetailActivity extends AppCompatActivity {
 
+    // 🌟 新增：暴露 BASE_URL 供测试修改
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
     private RecyclerView rvAllComments;
     private String postId;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -53,11 +56,11 @@ public class PostDetailActivity extends AppCompatActivity {
         }
     }
 
-    /** 从后端拉取该帖子的所有评论 */
     private void fetchAllComments() {
         new Thread(() -> {
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/posts/" + postId + "/comments");
+                // 🌟 修改：使用动态拼接的 BASE_URL
+                URL url = new URL(BASE_URL + "/v1/posts/" + postId + "/comments");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(5000);
@@ -76,7 +79,7 @@ public class PostDetailActivity extends AppCompatActivity {
                                 obj.getString("content"),
                                 obj.getString("time"),
                                 obj.optString("reply_to_id", null),
-                                obj.optString("reply_to_name", null) // 🌟 提取名字
+                                obj.optString("reply_to_name", null)
                         ));
                     }
 
@@ -91,7 +94,6 @@ public class PostDetailActivity extends AppCompatActivity {
         }).start();
     }
 
-    /** 内部 Adapter，专用于在详情页展示完整评论列表 */
     private static class AllCommentsAdapter extends RecyclerView.Adapter<AllCommentsAdapter.CommentViewHolder> {
         private final List<ClubComment> comments;
 
@@ -112,7 +114,6 @@ public class PostDetailActivity extends AppCompatActivity {
             holder.tvAuthor.setText(c.author);
             holder.tvTime.setText(c.time);
 
-            // 🌟 核心修改：增加对 "null" 字符串的判断，防止直接评论时显示 @null
             String text = "";
             if (c.replyToId != null && !c.replyToId.isEmpty() && !c.replyToId.equals("null") &&
                     c.replyToName != null && !c.replyToName.isEmpty() && !c.replyToName.equals("null")) {

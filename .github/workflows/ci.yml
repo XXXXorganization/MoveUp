@@ -25,9 +25,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: 'npm'
@@ -54,7 +54,7 @@ jobs:
           DB_PASSWORD: moveup_test
           DB_NAME: moveup_test
       - name: Upload Backend Coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: backend/coverage.xml
@@ -65,24 +65,29 @@ jobs:
   frontend-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: gradle
+          
       - name: Grant execute permission for gradlew
-        working-directory: ./frontend 
+        # 🌟 修改 1：进入 code 文件夹
+        working-directory: ./frontend/code
         run: chmod +x gradlew
+        
       - name: Run Android Tests & Generate Report
-        working-directory: ./frontend 
-        run: ./gradlew testDebugUnitTest jacocoTestReport
+        # 🌟 修改 2：进入 code 文件夹
+        working-directory: ./frontend/code
+        run: ./gradlew :app:testDebugUnitTest :app:jacocoTestReport
+        
       - name: Upload Frontend Coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          # 指向 Jacoco 生成的 XML 报告
-          files: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          # 🌟 修改 3：确保读取 XML 的路径加上了 code/ 层级
+          files: frontend/code/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
           flags: frontend
           name: moveup-frontend

@@ -25,6 +25,9 @@ import java.net.URL;
 
 public class Plan extends AppCompatActivity {
 
+    // 🌟 新增：暴露 BASE_URL 供测试修改
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
     private DrawerLayout drawerLayout;
     private Handler mainHandler;
     private TextView tv42;
@@ -43,23 +46,18 @@ public class Plan extends AppCompatActivity {
 
         mainHandler = new Handler(Looper.getMainLooper());
 
-        // 绑定组件
         tv42 = findViewById(R.id.tv42);
         drawerLayout = findViewById(R.id.drawerLayout);
 
-        // 获取当前登录用户
         SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
         currentUserId = prefs.getString("user_phone", "13800138000");
 
-        // 🌟 侧边栏呼出逻辑
         findViewById(R.id.btnMenu).setOnClickListener(v -> {
             drawerLayout.openDrawer(findViewById(R.id.drawerMenu));
         });
 
-        // 🌟 初始化侧边栏内每个按钮的跳转逻辑
         setupMenuClicks();
 
-        // 绑定 7 天的卡片点击事件
         setupDayCard(R.id.cardDay1, "MONDAY", R.drawable.day1);
         setupDayCard(R.id.cardDay2, "TUESDAY", R.drawable.day2);
         setupDayCard(R.id.cardDay3, "WEDNESDAY", R.drawable.day3);
@@ -69,18 +67,12 @@ public class Plan extends AppCompatActivity {
         setupDayCard(R.id.cardDay7, "SUNDAY", R.drawable.day7);
     }
 
-    /**
-     * 每次回到这个页面都会自动刷新每周计划总里程
-     */
     @Override
     protected void onResume() {
         super.onResume();
         fetchTotalDistance();
     }
 
-    /**
-     * 🌟 初始化侧边栏菜单跳转，逻辑与 Main.java 完全一致
-     */
     private void setupMenuClicks() {
         TextView menuHome = findViewById(R.id.menu_home);
         TextView menuHistory = findViewById(R.id.menu_history);
@@ -88,44 +80,37 @@ public class Plan extends AppCompatActivity {
         TextView menuClub = findViewById(R.id.menu_club);
         TextView menuProfile = findViewById(R.id.menu_profile);
 
-        // Home
-        menuHome.setOnClickListener(v -> {
+        if (menuHome != null) menuHome.setOnClickListener(v -> {
             startActivity(new Intent(Plan.this, Main.class));
-            finish(); // 返回主页，关闭当前页
+            finish();
         });
 
-        // History
-        menuHistory.setOnClickListener(v -> {
+        if (menuHistory != null) menuHistory.setOnClickListener(v -> {
             startActivity(new Intent(Plan.this, History.class));
             finish();
         });
 
-        // Plan: 因为已经在这个页面了，直接关闭侧边栏即可
-        menuPlan.setOnClickListener(v -> {
+        if (menuPlan != null) menuPlan.setOnClickListener(v -> {
             drawerLayout.closeDrawers();
         });
 
-        // Club
-        menuClub.setOnClickListener(v -> {
+        if (menuClub != null) menuClub.setOnClickListener(v -> {
             startActivity(new Intent(Plan.this, clubterm.class));
             finish();
         });
 
-        // Profile → Mine
-        menuProfile.setOnClickListener(v -> {
+        if (menuProfile != null) menuProfile.setOnClickListener(v -> {
             startActivity(new Intent(Plan.this, Mine.class));
             finish();
         });
     }
 
-    /**
-     * 🌟 获取用户当周计划的总跑步距离
-     */
     private void fetchTotalDistance() {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/plan/total_distance?user_id=" + currentUserId);
+                // 🌟 修改点：使用 BASE_URL 动态拼接
+                URL url = new URL(BASE_URL + "/v1/plan/total_distance?user_id=" + currentUserId);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -157,9 +142,6 @@ public class Plan extends AppCompatActivity {
         }).start();
     }
 
-    /**
-     * 封装点击跳转逻辑，携带星期名字和图片资源 ID
-     */
     private void setupDayCard(int cardId, String dayName, int imageResId) {
         View card = findViewById(cardId);
         if (card != null) {

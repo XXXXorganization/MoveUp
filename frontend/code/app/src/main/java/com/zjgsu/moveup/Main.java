@@ -32,6 +32,9 @@ import java.util.List;
 
 public class Main extends AppCompatActivity {
 
+    // 🌟 新增：暴露 BASE_URL 供测试动态拦截
+    public static String BASE_URL = "http://10.0.2.2:3000";
+
     private DrawerLayout drawerLayout;
     private Handler mainHandler;
 
@@ -69,13 +72,12 @@ public class Main extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // ================= 新增：See All 跳转到 Find 界面 =================
+        // See All 跳转到 Find 界面
         TextView btnSeeAllClubs = findViewById(R.id.btnSeeAllClubs);
         btnSeeAllClubs.setOnClickListener(v -> {
             Intent intent = new Intent(Main.this, Find.class);
             startActivity(intent);
         });
-        // ==============================================================
 
         // 俱乐部列表
         RecyclerView clubList = findViewById(R.id.recyclerClubs);
@@ -83,7 +85,7 @@ public class Main extends AppCompatActivity {
                 new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         clubList.setAdapter(new ClubAdapter(buildSampleClubs()));
 
-        // ================= 新增：动态获取最新的跑步历史数据 =================
+        // 动态获取最新的跑步历史数据
         activityCard1 = findViewById(R.id.activityCard1);
         activityCard2 = findViewById(R.id.activityCard2);
 
@@ -93,7 +95,8 @@ public class Main extends AppCompatActivity {
 
         // 向后端拉取数据
         fetchLatestActivities(currentUserId);
-// ================= 新增：在这里召唤 AI 悬浮球 =================
+
+        // 召唤 AI 悬浮球
         AIFloatManager.addFloat(this);
     }
 
@@ -113,7 +116,8 @@ public class Main extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL("http://10.0.2.2:3000/v1/runs?user_id=" + userId);
+                // 🌟 修改：使用动态拼接的 BASE_URL
+                URL url = new URL(BASE_URL + "/v1/runs?user_id=" + userId);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -190,30 +194,30 @@ public class Main extends AppCompatActivity {
         TextView menuProfile = findViewById(R.id.menu_profile);
 
         // Home → 主页（关闭菜单即可）
-        menuHome.setOnClickListener(v -> {
+        if (menuHome != null) menuHome.setOnClickListener(v -> {
             drawerLayout.closeDrawers();
         });
 
         // History
-        menuHistory.setOnClickListener(v -> {
+        if (menuHistory != null) menuHistory.setOnClickListener(v -> {
             startActivity(new Intent(Main.this, History.class));
             finish();
         });
 
         // Plan
-        menuPlan.setOnClickListener(v -> {
+        if (menuPlan != null) menuPlan.setOnClickListener(v -> {
             startActivity(new Intent(Main.this, Plan.class));
             finish();
         });
 
         // Club
-        menuClub.setOnClickListener(v -> {
+        if (menuClub != null) menuClub.setOnClickListener(v -> {
             startActivity(new Intent(Main.this, clubterm.class));
             finish();
         });
 
         // Profile → Mine
-        menuProfile.setOnClickListener(v -> {
+        if (menuProfile != null) menuProfile.setOnClickListener(v -> {
             startActivity(new Intent(Main.this, Mine.class));
             finish();
         });
@@ -225,7 +229,7 @@ public class Main extends AppCompatActivity {
                 new Club(
                         getString(R.string.club_tangerang),
                         getString(R.string.club_tangerang_loc),
-                        R.drawable.moveup), // 确保这里引用你本地存在的图片资源
+                        R.drawable.moveup),
                 new Club(
                         getString(R.string.club_jakarta),
                         getString(R.string.club_jakarta_loc),
