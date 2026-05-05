@@ -15,7 +15,7 @@ const mockRepository: jest.Mocked<SportRepository> = {
   getHeartRatesByRecordId: jest.fn(),
   getSportRecordsByUserId: jest.fn(),
   getPaceSegments: jest.fn(),
-} as unknown as jest.Mocked<SportRepository>;
+} as any as jest.Mocked<SportRepository>;
 
 function makeService() {
   return new SportService(mockRepository);
