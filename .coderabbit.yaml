@@ -1,0 +1,17 @@
+version: 2
+language: zh-CN
+
+reviews:
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    include:
+      - "backend/**/*.ts"
+      - "backend/**/*.js"
+    exclude:
+      - "**/node_modules/**"
+      - "**/dist/**"
+      - "**/coverage/**"
+  poem: false
+  high_level_summary: true
