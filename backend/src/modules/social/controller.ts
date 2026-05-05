@@ -7,7 +7,7 @@ export class SocialController {
   constructor(private service: SocialService) {}
 
   private getUserId(req: Request): string {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) throw new AppError('请先登录', 401);
     return userId;
   }
