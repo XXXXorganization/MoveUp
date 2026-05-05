@@ -29,7 +29,7 @@ const mockRepo: jest.Mocked<SocialRepository> = {
   deleteComment: jest.fn(),
   getLikedPostIds: jest.fn(),
   getLeaderboard: jest.fn(),
-} as unknown as jest.Mocked<SocialRepository>;
+} as any as jest.Mocked<SocialRepository>;
 
 const svc = () => new SocialService(mockRepo);
 
