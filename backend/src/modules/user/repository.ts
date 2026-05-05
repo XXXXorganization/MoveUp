@@ -1,7 +1,7 @@
 // src/modules/user/repository.ts
 import { UserModel } from './model';
 import { User, CreateUserRequest, UpdateUserRequest } from './types';
-import knex from 'knex';
+//import knex from 'knex';
 
 export class UserRepository {
   private userModel: UserModel;
