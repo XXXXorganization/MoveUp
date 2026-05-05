@@ -54,7 +54,7 @@ jobs:
           DB_PASSWORD: moveup_test
           DB_NAME: moveup_test
       - name: Upload Backend Coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: backend/coverage.xml
@@ -84,7 +84,7 @@ jobs:
         run: ./gradlew :app:testDebugUnitTest :app:jacocoTestReport
         
       - name: Upload Frontend Coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           # 🌟 修改 3：确保读取 XML 的路径加上了 code/ 层级
