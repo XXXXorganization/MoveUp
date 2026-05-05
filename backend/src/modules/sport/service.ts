@@ -1,3 +1,5 @@
+/* eslint-disable no-useless-assignment, @typescript-eslint/no-unused-vars */
+
 // src/modules/sport/service.ts
 import { SportRepository } from './repository';
 import {
