@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/backend"      # 你的 package.json 所在目录
+    schedule:
+      interval: "weekly"       # 每周自动检查更新（也可以改成 daily 每天）
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps(backend)"
+    labels:
+      - "backend"
+      - "dependencies"
+    # 如果想自动合并通过 CI 的依赖更新，可以加上下面这两行
+    automerge: true
+    merge:
+      method: "squash"
