@@ -17,7 +17,7 @@ export class SportController {
    */
   async startSportRecord(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         throw new AppError('请先登录', 401);
       }
@@ -174,7 +174,7 @@ export class SportController {
    */
   async getUserSportStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         throw new AppError('请先登录', 401);
       }
@@ -199,7 +199,7 @@ export class SportController {
       const { recordId } = req.params;
 
       const record = await this.service.getSportRecordById(recordId);
-      const gpsPoints = await this.service.getGpsPointsByRecordId(recordId);
+      //const gpsPoints = await this.service.getGpsPointsByRecordId(recordId);
 
       // 使用 service 内部方法计算分段（需要暴露或重新实现）
       // 这里简化处理，返回基础信息
@@ -266,7 +266,7 @@ export class SportController {
    */
   async getSportRecords(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         throw new AppError('请先登录', 401);
       }
