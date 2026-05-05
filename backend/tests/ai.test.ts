@@ -142,7 +142,7 @@ describe('AI 数据总结模块 API 测试', () => {
       expect(res.status).toBe(200);
       const { suggestions } = res.body.data;
       expect(Array.isArray(suggestions)).toBe(true);
-      suggestions.forEach((s: unknown) => {
+      suggestions.forEach((s: any) => {
         expect(typeof s).toBe('string');
       });
     });
