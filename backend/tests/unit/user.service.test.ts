@@ -12,7 +12,7 @@ const mockRepository: jest.Mocked<UserRepository> = {
   create: jest.fn(),
   update: jest.fn(),
   getUserStats: jest.fn(),
-} as unknown as jest.Mocked<UserRepository>;
+} as any as jest.Mocked<UserRepository>;
 
 const JWT_SECRET = 'test-secret';
 const JWT_EXPIRES_IN = 86400;

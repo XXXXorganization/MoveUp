@@ -36,11 +36,11 @@ function mockTokenData() {
 }
 
 function mockRunStartResponse() { return { run_id: "RUN_MOCK_1", start_time: "2024-11-01T08:00:00Z" }; }
-function mockRunPoints() { return [{ lat: 39.9087, lng: 116.3974, altitude: 50, timestamp: "2024-11-01T08:01:00Z", speed: 3.5, heart_rate: 145 }]; }
-function mockRunListResponse() { return { total: 1, list: [{ run_id: "RUN_MOCK_1", date: "2024-11-01", distance: 5.23, duration: 1845, pace_avg: '5\'30"', calories: 380, route_image: "https://example.com/route.jpg" }] }; }
-function mockStatsResponse() { return { total_distance: 35.6, total_duration: 10800, total_calories: 2450, avg_pace: '5\'15"', runs_count: 5, daily_data: [{ date: "11-01", distance: 5.2 }, { date: "11-02", distance: 8.5 }] }; }
-function mockChallengeListResponse(status = "ongoing") { return { challenges: [{ id: 20001, name: "城市打卡挑战", status, description: "一周内完成指定距离" }] }; }
-function mockBadges() { return [{ id: 30001, name: "首跑徽章", icon: "https://example.com/badge.png", achieved: true }]; }
+// function mockRunPoints() { return [{ lat: 39.9087, lng: 116.3974, altitude: 50, timestamp: "2024-11-01T08:01:00Z", speed: 3.5, heart_rate: 145 }]; }
+// function mockRunListResponse() { return { total: 1, list: [{ run_id: "RUN_MOCK_1", date: "2024-11-01", distance: 5.23, duration: 1845, pace_avg: '5\'30"', calories: 380, route_image: "https://example.com/route.jpg" }] }; }
+// function mockStatsResponse() { return { total_distance: 35.6, total_duration: 10800, total_calories: 2450, avg_pace: '5\'15"', runs_count: 5, daily_data: [{ date: "11-01", distance: 5.2 }, { date: "11-02", distance: 8.5 }] }; }
+// function mockChallengeListResponse(status = "ongoing") { return { challenges: [{ id: 20001, name: "城市打卡挑战", status, description: "一周内完成指定距离" }] }; }
+// function mockBadges() { return [{ id: 30001, name: "首跑徽章", icon: "https://example.com/badge.png", achieved: true }]; }
 
 const planDataDB = {
   "13800138000": { "MONDAY": [ { time: "06:00 AM - 07:00 AM", start_time: "06:00 AM", end_time: "07:00 AM", distance: "20 Km" } ], "TUESDAY": [ { time: "04:00 PM - 05:00 PM", start_time: "04:00 PM", end_time: "05:00 PM", distance: "10 Km" } ] }
@@ -85,7 +85,7 @@ const routes = [
   { method: "POST", path: "/auth/register", handler: (req, res) => {
       const { phone, username, password } = req.body || {};
       if (!phone || !username || !password) return sendJson(res, standardResponse(400, "注册信息不完整"));
-      if (usersDB.hasOwnProperty(phone)) return sendJson(res, standardResponse(409, "该手机号已注册，请直接登录"));
+      if (Object.hasOwn(usersDB, phone)) return sendJson(res, standardResponse(409, "该手机号已注册，请直接登录"));
       usersDB[phone] = { password, username };
       userClubsDB[phone] = [];
       return sendJson(res, standardResponse(200, "注册成功"));
@@ -93,7 +93,7 @@ const routes = [
   },
   { method: "POST", path: "/auth/login", handler: (req, res) => {
       const { phone, code } = req.body || {};
-      if (!phone || !usersDB.hasOwnProperty(phone)) return sendJson(res, standardResponse(404, "账号不存在，请先注册"));
+      if (!phone || !Object.hasOwn(usersDB, phone)) return sendJson(res, standardResponse(404, "账号不存在，请先注册"));
       if (usersDB[phone].password !== code) return sendJson(res, standardResponse(401, "密码错误，请重新输入"));
       return sendJson(res, standardResponse(200, `欢迎回来, ${usersDB[phone].username}`, mockTokenData()));
     }
@@ -307,10 +307,10 @@ const routes = [
 
       // 2. 获取用户日程，转换成非常清晰的“人话”供 AI 阅读，防止它读不懂 JSON 而卡壳
       const currentPlans = planDataDB[userIdStr] || {};
-      let planStr = "当前没有任何计划。\n";
+      // let planStr = "当前没有任何计划。\n";
       const daysOfWeek = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
       
-      planStr = daysOfWeek.map(day => {
+      const planStr = daysOfWeek.map(day => {
           const plans = currentPlans[day];
           if (plans && plans.length > 0) {
               return `[${day}]: ` + plans.map(p => `${p.time} (${p.distance})`).join("，");

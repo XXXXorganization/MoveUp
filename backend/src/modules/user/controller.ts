@@ -2,7 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { UserService } from './service';
 import { LoginRequest, SendCodeRequest, UpdateUserRequest } from './types';
-import { AppError } from '../../utils/errors';
+//import { AppError } from '../../utils/errors';
 
 export class UserController {
   private userService: UserService;
@@ -33,7 +33,7 @@ export class UserController {
 
   async getUserProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user.userId; // 从JWT中间件获取
+      const userId = req.user!.userId; // 从JWT中间件获取
       const profile = await this.userService.getUserProfile(userId);
       res.json({ code: 200, message: 'success', data: profile });
     } catch (error) {
@@ -43,7 +43,7 @@ export class UserController {
 
   async updateUserProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user.userId;
+      const userId = req.user!.userId;
       const updateData: UpdateUserRequest = req.body;
       const user = await this.userService.updateUserProfile(userId, updateData);
       res.json({ code: 200, message: '更新成功', data: user });

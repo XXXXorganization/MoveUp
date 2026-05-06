@@ -40,7 +40,7 @@ export class CoachingController {
    */
   async recommendPlan(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = req.user?.userId;
       if (!userId) throw new AppError('请先登录', 401);
 
       const body: PlanRecommendRequest = req.body;
@@ -61,7 +61,7 @@ export class CoachingController {
    */
   async adoptPlan(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = req.user?.userId;
       if (!userId) throw new AppError('请先登录', 401);
 
       const detail = await this.service.adoptPlan(userId, req.params.planId);
@@ -77,7 +77,7 @@ export class CoachingController {
    */
   async getActivePlan(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = req.user?.userId;
       if (!userId) throw new AppError('请先登录', 401);
 
       const detail = await this.service.getActivePlan(userId);
@@ -93,7 +93,7 @@ export class CoachingController {
    */
   async getTodayTask(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = req.user?.userId;
       if (!userId) throw new AppError('请先登录', 401);
 
       const task = await this.service.getTodayTask(userId);
@@ -109,7 +109,7 @@ export class CoachingController {
    */
   async updateProgress(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = req.user?.userId;
       if (!userId) throw new AppError('请先登录', 401);
 
       const { week, day } = req.body;
@@ -128,7 +128,7 @@ export class CoachingController {
    */
   async quitPlan(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = req.user?.userId;
       if (!userId) throw new AppError('请先登录', 401);
 
       await this.service.quitPlan(userId, req.params.userPlanId);

@@ -1,5 +1,5 @@
 // src/modules/user/model.ts
-import knex from 'knex';
+//import knex from 'knex';
 import { User } from './types';
 
 export class UserModel {

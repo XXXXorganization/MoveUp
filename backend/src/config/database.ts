@@ -1,6 +1,5 @@
-// src/config/database.ts
 import knex from 'knex';
-const knexConfig = require('../../knexfile');
+import knexConfig from '@knexfile';
 
 const environment = process.env.NODE_ENV || 'development';
 const config = knexConfig[environment];

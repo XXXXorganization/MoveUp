@@ -28,7 +28,7 @@ const mockRepo: jest.Mocked<ChallengeRepository> = {
   createMembership: jest.fn(),
   getTotalPoints: jest.fn(),
   getPointsLogs: jest.fn(),
-} as unknown as jest.Mocked<ChallengeRepository>;
+} as any as jest.Mocked<ChallengeRepository>;
 
 const svc = () => new ChallengeService(mockRepo);
 

@@ -8,13 +8,13 @@ interface JwtPayload {
   phone: string;
 }
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: JwtPayload;
-    }
-  }
-}
+// declare global {
+//   namespace Express {
+//     interface Request {
+//       user?: JwtPayload;
+//     }
+//   }
+// }
 
 export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
   const authHeader = req.headers.authorization;
@@ -28,7 +28,7 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JwtPayload;
     req.user = decoded;
     next();
-  } catch (error) {
+  } catch {
     throw new AppError('无效的访问令牌', 401);
   }
 };

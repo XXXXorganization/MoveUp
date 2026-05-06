@@ -12,7 +12,7 @@ const mockRepository: jest.Mocked<CoachingRepository> = {
   getActivePlanByUserId: jest.fn(),
   updateUserPlan: jest.fn(),
   deactivateAllUserPlans: jest.fn(),
-} as unknown as jest.Mocked<CoachingRepository>;
+} as any as jest.Mocked<CoachingRepository>;
 
 function makeService() {
   return new CoachingService(mockRepository);

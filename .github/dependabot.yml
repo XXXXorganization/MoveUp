@@ -1,20 +1,16 @@
 version: 2
 updates:
-  # 1. 自动检查 Android 前端依赖 (Gradle)
-  - package-ecosystem: "gradle"
-    # 根据你之前的目录结构，Gradle 的配置文件在 /frontend/code 目录下
-    directory: "/frontend/code" 
-    schedule:
-      interval: "weekly" # 每周检查一次，避免每天发 PR 骚扰你
-
-  # 2. 自动检查后端依赖 (npm)
   - package-ecosystem: "npm"
-    directory: "/backend"
+    directory: "/backend"      # 你的 package.json 所在目录
     schedule:
-      interval: "weekly"
-
-  # 3. 自动检查 GitHub Actions 插件的版本更新 (比如 actions/checkout)
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
+      interval: "weekly"       # 每周自动检查更新（也可以改成 daily 每天）
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps(backend)"
+    labels:
+      - "backend"
+      - "dependencies"
+    # 如果想自动合并通过 CI 的依赖更新，可以加上下面这两行
+    automerge: true
+    merge:
+      method: "squash"

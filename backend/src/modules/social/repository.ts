@@ -1,7 +1,7 @@
 // src/modules/social/repository.ts
 import { Knex } from 'knex';
 import { FriendshipModel, PostModel, CommentModel, LikeModel } from './model';
-import { Friendship, Post, Comment } from './types';
+import { Post, Comment } from './types';
 
 export class SocialRepository {
   private friendshipModel: FriendshipModel;
