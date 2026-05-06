@@ -81,6 +81,7 @@ public class RouteView extends View {
         double minLon = Double.MAX_VALUE;
         double maxLon = -Double.MAX_VALUE;
 
+        // 第一次遍历：计算经纬度范围
         for (Location p : route) {
             if (p == null) continue;
             minLat = Math.min(minLat, p.getLatitude());
@@ -94,7 +95,12 @@ public class RouteView extends View {
 
         Path path = new Path();
         boolean first = true;
+
+        // 第二次遍历：绘制路径折线
         for (Location p : route) {
+            // 🌟 核心修复点：这里加入了防空保护，防止碰到 null 数据点时崩溃
+            if (p == null) continue;
+
             float x = (float) ((p.getLongitude() - minLon) / lonRange * w);
             float y = (float) ((1d - (p.getLatitude() - minLat) / latRange) * h);
             if (first) {
@@ -104,10 +110,12 @@ public class RouteView extends View {
                 path.lineTo(x, y);
             }
         }
+
         if (route.size() >= 2) {
             canvas.drawPath(path, linePaint);
         }
 
+        // 绘制代表当前位置的圆点
         Location d = latest != null ? latest : route.get(route.size() - 1);
         if (d != null) {
             float x = (float) ((d.getLongitude() - minLon) / lonRange * w);
@@ -116,4 +124,3 @@ public class RouteView extends View {
         }
     }
 }
-
