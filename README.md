@@ -1,9 +1,9 @@
 # MoveUp
 ### 项目状态
 [![CI 构建状态](https://github.com/XXXXorganization/MoveUp/actions/workflows/ci.yml/badge.svg)](https://github.com/XXXXorganization/MoveUp/actions/workflows/ci.yml)  
-#### 整体覆盖率: [![整体覆盖率][![codecov](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?token=VVQXTMZQTE)](https://codecov.io/gh/XXXXorganization/MoveUp) 
-#### 后端覆盖率: [![后端覆盖率][![codecov](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?flag=backend)](https://codecov.io/gh/XXXXorganization/MoveUp)
-#### 前端覆盖率: [![前端覆盖率][![codecov](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?flag=frontend)](https://codecov.io/gh/XXXXorganization/MoveUp)
+#### [![整体覆盖率][![codecov](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?token=VVQXTMZQTE)](https://codecov.io/gh/XXXXorganization/MoveUp) 
+#### [![后端覆盖率][![codecov](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?flag=backend)](https://codecov.io/gh/XXXXorganization/MoveUp)
+#### [![前端覆盖率][![codecov](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?flag=frontend)](https://codecov.io/gh/XXXXorganization/MoveUp)
 
 这是一个关于运动跑步的软件
 ## 团队成员
