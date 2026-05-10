@@ -18,13 +18,22 @@ jobs:
         with:
           fetch-depth: 0  # 拉取完整历史，扫描所有提交
 
+      - name: Install Gitleaks
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.25.1/gitleaks_8.25.1_linux_x64.tar.gz
+          tar -xzf gitleaks_8.25.1_linux_x64.tar.gz gitleaks
+          chmod +x gitleaks
+          sudo mv gitleaks /usr/local/bin/
+          gitleaks version
+
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: detect --source . --verbose --redact --report-format json --report-path gitleaks-report.json
+        run: |
+          gitleaks detect \
+            --source . \
+            --verbose \
+            --redact \
+            --report-format json \
+            --report-path gitleaks-report.json
 
       - name: Upload scan report
         if: always()
