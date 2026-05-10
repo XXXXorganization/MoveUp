@@ -30,6 +30,7 @@ jobs:
         run: |
           gitleaks detect \
             --source . \
+            --config .gitleaks.toml \
             --verbose \
             --redact \
             --report-format json \
