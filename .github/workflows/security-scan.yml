@@ -1,0 +1,45 @@
+name: Security Scan
+
+# 密钥泄露扫描 (Gitleaks) — 每次 push 和 PR 自动运行
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  secret-scan:
+    name: Gitleaks — 密钥泄露扫描
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 拉取完整历史，扫描所有提交
+
+      - name: Install Gitleaks
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.25.1/gitleaks_8.25.1_linux_x64.tar.gz
+          tar -xzf gitleaks_8.25.1_linux_x64.tar.gz gitleaks
+          chmod +x gitleaks
+          sudo mv gitleaks /usr/local/bin/
+          gitleaks version
+
+      - name: Run Gitleaks
+        run: |
+          gitleaks detect \
+            --source . \
+            --config .gitleaks.toml \
+            --verbose \
+            --redact \
+            --report-format json \
+            --report-path gitleaks-report.json
+
+      - name: Upload scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          retention-days: 30
