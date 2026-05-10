@@ -1,0 +1,9 @@
+# Gitleaks 配置
+# 排除仅作人类阅读的文档/示例文件中的假阳性
+
+[allowlist]
+  description = "文档示例文件，不含真实密钥"
+  paths = [
+    '''docs/api/apifox-test-guide.md''',
+    '''docs/api/apifox-user-test-guide.md''',
+  ]
