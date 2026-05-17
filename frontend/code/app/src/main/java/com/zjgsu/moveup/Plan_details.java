@@ -43,7 +43,7 @@ import java.util.Locale;
 public class Plan_details extends AppCompatActivity {
 
     // 🌟 新增：暴露 BASE_URL 供测试修改
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://10.234.4.72:3500";
 
     private Handler mainHandler;
     private RecyclerView recyclerView;

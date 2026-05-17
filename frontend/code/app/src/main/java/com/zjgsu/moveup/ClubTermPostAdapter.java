@@ -34,7 +34,7 @@ import java.util.List;
 public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapter.PostViewHolder> {
 
     // 🌟 核心修复：添加 public static 的 BASE_URL，供测试代码动态拦截
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://10.234.4.72:3500";
 
     private final List<ClubTermPost> posts;
     private final String currentUserId;

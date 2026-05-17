@@ -1,10 +1,10 @@
 package com.zjgsu.moveup;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import android.view.KeyEvent;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -15,8 +15,10 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
+import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -33,19 +35,25 @@ import java.util.List;
 
 public class Find extends AppCompatActivity {
 
-    // 🌟 核心修改点：暴露 BASE_URL，方便测试框架拦截和动态修改
-    public static String BASE_URL = "http://10.0.2.2:3000/v1";
+    public static String BASE_URL = "http://10.234.4.72:3500/v1";
 
     private RecyclerView rvFindClubs;
     private ClubAdapter adapter;
     private List<Club> clubList;
     private Handler mainHandler;
 
+    // 🌟 新增：抽屉布局引用
+    private DrawerLayout drawerLayout;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_find);
+
+        // 🌟 初始化 DrawerLayout
+        drawerLayout = findViewById(R.id.drawerLayout);
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -61,29 +69,73 @@ public class Find extends AppCompatActivity {
         rvFindClubs.setAdapter(adapter);
 
         EditText etSearch = findViewById(R.id.etSearch);
-        etSearch.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_SEARCH
-                        || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
-                    String keyword = etSearch.getText().toString().trim();
-                    fetchClubs(keyword);
-                    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                    if (imm != null) imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
-                    return true;
-                }
-                return false;
+        etSearch.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH
+                    || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                String keyword = etSearch.getText().toString().trim();
+                fetchClubs(keyword);
+                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+                return true;
+            }
+            return false;
+        });
+
+        // 🌟 绑定左上角菜单按钮点击事件：从左侧划出菜单
+        findViewById(R.id.btnMenu).setOnClickListener(v -> {
+            if (drawerLayout != null) {
+                drawerLayout.openDrawer(GravityCompat.START);
             }
         });
 
+        // 🌟 初始化并绑定侧滑菜单内部的跳转点击事件
+        setupMenuClicks();
+
         fetchClubs("");
+    }
+
+    /**
+     * 🌟 侧滑菜单跳转逻辑配置
+     */
+    private void setupMenuClicks() {
+        TextView menuHome = findViewById(R.id.menu_home);
+        TextView menuHistory = findViewById(R.id.menu_history);
+        TextView menuPlan = findViewById(R.id.menu_plan);
+        TextView menuClub = findViewById(R.id.menu_club);
+        TextView menuProfile = findViewById(R.id.menu_profile);
+
+        if (menuHome != null) menuHome.setOnClickListener(v -> {
+            startActivity(new Intent(Find.this, Main.class));
+            finish();
+        });
+
+        if (menuHistory != null) menuHistory.setOnClickListener(v -> {
+            startActivity(new Intent(Find.this, History.class));
+            finish();
+        });
+
+        if (menuPlan != null) menuPlan.setOnClickListener(v -> {
+            startActivity(new Intent(Find.this, Plan.class));
+            finish();
+        });
+
+        // 当前已经在社团查找相关页面，但如果是跳到详情也可以保留
+        if (menuClub != null) menuClub.setOnClickListener(v -> {
+            if (drawerLayout != null) {
+                drawerLayout.closeDrawers();
+            }
+        });
+
+        if (menuProfile != null) menuProfile.setOnClickListener(v -> {
+            startActivity(new Intent(Find.this, Mine.class));
+            finish();
+        });
     }
 
     private void fetchClubs(String keyword) {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                // 🌟 修改点：使用 BASE_URL 动态拼接地址
                 String urlString = BASE_URL + "/clubs";
                 if (!keyword.isEmpty()) {
                     urlString += "?q=" + URLEncoder.encode(keyword, "UTF-8");
@@ -111,14 +163,13 @@ public class Find extends AppCompatActivity {
                             for (int i = 0; i < listArray.length(); i++) {
                                 JSONObject obj = listArray.getJSONObject(i);
 
-                                // 提取后端的 ID
                                 String id = obj.optString("id", "");
                                 String name = obj.optString("name");
                                 String location = obj.optString("location");
                                 String flag = obj.optString("flag", "🇨🇳");
+                                String imageUrl = obj.optString("image_url", "");
 
-                                // 传入构造函数中
-                                tempNewList.add(new Club(id, name, location, R.drawable.moveup, flag));
+                                tempNewList.add(new Club(id, name, location, imageUrl, flag));
                             }
                         }
 

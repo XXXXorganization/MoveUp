@@ -29,7 +29,7 @@ import java.nio.charset.StandardCharsets;
 public class AItalk extends AppCompatActivity {
 
     // 🌟 核心修改：改为 public static 方便测试拦截
-    public static String BASE_URL = "http://10.0.2.2:3000/v1/ai/chat";
+    public static String BASE_URL = "http://10.234.4.72:3500/v1/ai/chat";
 
     private LinearLayout chatContainer;
     private ScrollView chatScrollView;

@@ -67,6 +67,8 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+
     // 只保留高德 3D 地图 SDK
     implementation("com.amap.api:3dmap:10.0.600")
 

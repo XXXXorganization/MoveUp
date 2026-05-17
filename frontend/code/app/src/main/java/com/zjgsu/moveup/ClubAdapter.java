@@ -10,6 +10,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+
 import java.util.List;
 
 public class ClubAdapter extends RecyclerView.Adapter<ClubAdapter.ClubViewHolder> {
@@ -41,13 +43,27 @@ public class ClubAdapter extends RecyclerView.Adapter<ClubAdapter.ClubViewHolder
 
         if (holder.name != null) holder.name.setText(club.name);
         if (holder.location != null) holder.location.setText(club.location);
-        if (holder.image != null) holder.image.setImageResource(club.imageResId);
         if (holder.flag != null) holder.flag.setText(club.flag);
 
-        // 🌟 新增：点击整个卡片跳转到详情页 (clubterm)
+        // 🌟 核心修改：动态加载后端网络图片
+        if (holder.image != null) {
+            if (club.imageUrl != null && !club.imageUrl.isEmpty()) {
+                // 如果后端传了 URL，就用 Glide 进行异步加载
+                Glide.with(holder.itemView.getContext())
+                        .load(club.imageUrl)
+                        .centerCrop()
+                        .placeholder(R.drawable.moveup) // 加载时的占位图
+                        .error(R.drawable.moveup)       // 如果网络错误，显示默认图
+                        .into(holder.image);
+            } else if (club.imageResId != 0) {
+                // 如果没有 URL，兼容之前传了本地资源 ID 的逻辑（供测试类使用）
+                holder.image.setImageResource(club.imageResId);
+            }
+        }
+
+        // 点击整个卡片跳转到详情页 (clubterm)
         holder.itemView.setOnClickListener(v -> {
             Intent intent = new Intent(v.getContext(), clubterm.class);
-            // 将社团 ID 传递过去
             intent.putExtra("CLUB_ID", club.id);
             v.getContext().startActivity(intent);
         });
