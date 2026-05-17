@@ -32,7 +32,7 @@ import java.net.URL;
 public class Login extends AppCompatActivity {
 
     // 🌟 新增这一行，设为 public static 方便测试代码修改 [cite: 22]
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://10.234.4.72:3500";
 
     private EditText etPhone;
     private EditText etPassword;

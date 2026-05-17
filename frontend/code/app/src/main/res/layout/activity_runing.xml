@@ -149,10 +149,10 @@
                     android:orientation="vertical">
 
                     <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
+                        android:layout_width="32dp"
+                        android:layout_height="25dp"
                         android:contentDescription="@null"
-                        android:src="@drawable/ic_stat_pace" />
+                        android:src="@drawable/run1" />
 
                     <TextView
                         android:id="@+id/tvPace"
@@ -184,7 +184,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:contentDescription="@null"
-                        android:src="@drawable/ic_stat_duration" />
+                        android:src="@drawable/clock" />
 
                     <TextView
                         android:id="@+id/tvDuration"
@@ -216,7 +216,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:contentDescription="@null"
-                        android:src="@drawable/ic_stat_calories" />
+                        android:src="@drawable/kaluli" />
 
                     <TextView
                         android:id="@+id/tvCalories"
@@ -333,7 +333,7 @@
                     android:layout_width="18dp"
                     android:layout_height="18dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_stat_pace" />
+                    android:src="@drawable/run1" />
 
                 <TextView
                     android:id="@+id/tvMapPaceValue"
@@ -363,7 +363,8 @@
                     android:layout_width="18dp"
                     android:layout_height="18dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_stat_duration" />
+                    android:src="@drawable/clock"
+                    android:visibility="visible" />
 
                 <TextView
                     android:id="@+id/tvMapDurationValue"
@@ -393,7 +394,7 @@
                     android:layout_width="18dp"
                     android:layout_height="18dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_stat_calories" />
+                    android:src="@drawable/kaluli" />
 
                 <TextView
                     android:id="@+id/tvMapCaloriesValue"

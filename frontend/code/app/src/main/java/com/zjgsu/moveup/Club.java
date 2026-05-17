@@ -1,28 +1,36 @@
 package com.zjgsu.moveup;
 
-import androidx.annotation.DrawableRes;
+public class Club {
+    public String id;
+    public String name;
+    public String location;
 
-/** 跑步俱乐部列表项数据 */
-public final class Club {
+    // 兼容原有的本地图片资源
+    public int imageResId;
 
-    public final String id; // 新增：跑团唯一标识
-    public final String name;
-    public final String location;
-    @DrawableRes
-    public final int imageResId;
-    public final String flag;
+    // 🌟 新增：用于接收后端的真实网络图片链接
+    public String imageUrl;
 
-    // 兼容 Main.java 原有的构造函数（如果不传 ID，默认给个空字符串）
-    public Club(String name, String location, @DrawableRes int imageResId) {
-        this("", name, location, imageResId, "🇨🇳");
+    public String flag;
+
+    public Club() {
     }
 
-    // 完整构造函数
-    public Club(String id, String name, String location, @DrawableRes int imageResId, String flag) {
+    // 以前用于测试或本地占位图的构造函数（保留以防报错）
+    public Club(String id, String name, String location, int imageResId, String flag) {
         this.id = id;
         this.name = name;
         this.location = location;
         this.imageResId = imageResId;
+        this.flag = flag;
+    }
+
+    // 🌟 新增：用于从网络后端创建数据的构造函数
+    public Club(String id, String name, String location, String imageUrl, String flag) {
+        this.id = id;
+        this.name = name;
+        this.location = location;
+        this.imageUrl = imageUrl;
         this.flag = flag;
     }
 }

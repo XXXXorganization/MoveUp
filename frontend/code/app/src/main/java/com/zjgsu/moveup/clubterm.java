@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,6 +22,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.bumptech.glide.Glide;
 import com.google.android.material.button.MaterialButton;
 
 import org.json.JSONArray;
@@ -37,12 +39,13 @@ import java.util.List;
 public class clubterm extends AppCompatActivity {
 
     // 🌟 新增：暴露 BASE_URL 供测试修改
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://10.234.4.72:3500";
 
     private String clubId;
     private String currentUserId;
     private boolean isJoined = false;
 
+    private ImageView clubHeroImage; // 🌟 绑定顶部大图
     private TextView tvClubName;
     private TextView tvClubLocation;
     private MaterialButton btnJoin;
@@ -69,6 +72,8 @@ public class clubterm extends AppCompatActivity {
 
         mainHandler = new Handler(Looper.getMainLooper());
 
+        // 🌟 绑定视图
+        clubHeroImage = findViewById(R.id.clubHeroImage);
         tvClubName = findViewById(R.id.tvClubName);
         tvClubLocation = findViewById(R.id.tvClubLocation);
         btnJoin = findViewById(R.id.btnJoin);
@@ -141,7 +146,6 @@ public class clubterm extends AppCompatActivity {
     private void fetchClubPosts() {
         new Thread(() -> {
             try {
-                // 🌟 修改：使用 BASE_URL 拼接
                 URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/posts?user_id=" + currentUserId);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
@@ -216,7 +220,6 @@ public class clubterm extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                // 🌟 修改：使用 BASE_URL 拼接
                 URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "?user_id=" + currentUserId);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
@@ -235,11 +238,23 @@ public class clubterm extends AppCompatActivity {
                         final String name = data.optString("name");
                         final String location = data.optString("location");
                         final boolean joined = data.optBoolean("is_joined", false);
+                        // 🌟 解析获取后端返回的图片 URL
+                        final String imageUrl = data.optString("image_url", "");
 
                         mainHandler.post(() -> {
                             tvClubName.setText(name);
                             tvClubLocation.setText(location);
                             updateButtonUI(joined);
+
+                            // 🌟 使用 Glide 加载图片到顶部的 ImageView
+                            if (!imageUrl.isEmpty() && clubHeroImage != null) {
+                                Glide.with(clubterm.this)
+                                        .load(imageUrl)
+                                        .centerCrop()
+                                        .placeholder(R.drawable.term1) // XML中默认的占位图
+                                        .error(R.drawable.term1)       // 加载失败时使用默认图
+                                        .into(clubHeroImage);
+                            }
                         });
                     }
                 }
@@ -255,7 +270,6 @@ public class clubterm extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                // 🌟 修改：使用 BASE_URL 拼接
                 URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/toggle");
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
