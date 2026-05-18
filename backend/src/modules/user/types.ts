@@ -12,8 +12,13 @@ export interface User {
   target_distance?: number; // 米
   target_time?: number; // 分钟
   role: string; // 'user' | 'admin'
+  password_hash?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface CreateUserWithPasswordRequest extends CreateUserRequest {
+  password_hash: string;
 }
 
 export interface CreateUserRequest {
