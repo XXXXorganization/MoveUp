@@ -67,6 +67,8 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+
     // 只保留高德 3D 地图 SDK
     implementation("com.amap.api:3dmap:10.0.600")
 
@@ -75,11 +77,11 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver:4.11.0")
 
     // 用来生成 Mock 虚拟对象的库 (解决 mockito 爆红)
-    testImplementation("org.mockito:mockito-core:5.23.0")
+    testImplementation("org.mockito:mockito-core:5.3.1")
 
     // 用来测试 Fragment 生命周期的官方库 (解决 testing 爆红)
     // 注意：这里必须是 debugImplementation，因为测试 Fragment 需要一个空的 Debug Activity 容器
-    debugImplementation("androidx.fragment:fragment-testing:1.8.9")
+    debugImplementation("androidx.fragment:fragment-testing:1.6.2")
 }
 
 // 🌟 4. 注册生成覆盖率报告的任务

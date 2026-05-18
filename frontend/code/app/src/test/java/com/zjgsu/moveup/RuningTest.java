@@ -10,11 +10,11 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.amap.api.location.AMapLocation;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.json.JSONObject;
 import org.junit.After;
@@ -31,6 +31,7 @@ import org.robolectric.shadows.ShadowToast;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
@@ -197,28 +198,37 @@ public class RuningTest {
     }
 
     // ==========================================
-    // 6. 悬浮球触控逻辑 (短按切换监听状态 vs 长按拖拽)
+    // 6. 悬浮球触控逻辑 (改为反射获取 ImageView 并模拟触控)
     // ==========================================
     @Test
-    public void testVoiceFloatButton_TouchBranches() {
+    public void testVoiceFloatButton_TouchBranches() throws Exception {
         Runing activity = Robolectric.buildActivity(Runing.class).setup().get();
-        FloatingActionButton fab = findFab(activity);
+
+        // 推进时间轴，让 p2 和 p1 动画的 postDelayed 延时任务全部走完，保证初始化彻底完成
+        Robolectric.getForegroundThreadScheduler().advanceBy(6000, TimeUnit.MILLISECONDS);
+
+        // 🌟 核心：通过反射获取动态创建的 fabVoice (ImageView)
+        Field fabVoiceField = Runing.class.getDeclaredField("fabVoice");
+        fabVoiceField.setAccessible(true);
+        ImageView fabVoice = (ImageView) fabVoiceField.get(activity);
+
+        assertNotNull("语音悬浮按钮不应为空", fabVoice);
 
         // A. 模拟拖拽 (ACTION_UP 耗时 > 200ms)
         long dragTime = SystemClock.uptimeMillis();
-        fab.dispatchTouchEvent(MotionEvent.obtain(dragTime, dragTime, MotionEvent.ACTION_DOWN, 0, 0, 0));
-        fab.dispatchTouchEvent(MotionEvent.obtain(dragTime, dragTime + 100, MotionEvent.ACTION_MOVE, 10, 10, 0));
-        fab.dispatchTouchEvent(MotionEvent.obtain(dragTime, dragTime + 300, MotionEvent.ACTION_UP, 10, 10, 0));
+        fabVoice.dispatchTouchEvent(MotionEvent.obtain(dragTime, dragTime, MotionEvent.ACTION_DOWN, 0, 0, 0));
+        fabVoice.dispatchTouchEvent(MotionEvent.obtain(dragTime, dragTime + 100, MotionEvent.ACTION_MOVE, 10, 10, 0));
+        fabVoice.dispatchTouchEvent(MotionEvent.obtain(dragTime, dragTime + 300, MotionEvent.ACTION_UP, 10, 10, 0));
 
         // B. 模拟短按 (< 200ms)，触发 if(!isListening) startListening()
         long clickTime1 = SystemClock.uptimeMillis();
-        fab.dispatchTouchEvent(MotionEvent.obtain(clickTime1, clickTime1, MotionEvent.ACTION_DOWN, 0, 0, 0));
-        fab.dispatchTouchEvent(MotionEvent.obtain(clickTime1, clickTime1 + 50, MotionEvent.ACTION_UP, 0, 0, 0));
+        fabVoice.dispatchTouchEvent(MotionEvent.obtain(clickTime1, clickTime1, MotionEvent.ACTION_DOWN, 0, 0, 0));
+        fabVoice.dispatchTouchEvent(MotionEvent.obtain(clickTime1, clickTime1 + 50, MotionEvent.ACTION_UP, 0, 0, 0));
 
         // C. 再次短按，触发 else -> stopListening()
         long clickTime2 = SystemClock.uptimeMillis();
-        fab.dispatchTouchEvent(MotionEvent.obtain(clickTime2, clickTime2, MotionEvent.ACTION_DOWN, 0, 0, 0));
-        fab.dispatchTouchEvent(MotionEvent.obtain(clickTime2, clickTime2 + 50, MotionEvent.ACTION_UP, 0, 0, 0));
+        fabVoice.dispatchTouchEvent(MotionEvent.obtain(clickTime2, clickTime2, MotionEvent.ACTION_DOWN, 0, 0, 0));
+        fabVoice.dispatchTouchEvent(MotionEvent.obtain(clickTime2, clickTime2 + 50, MotionEvent.ACTION_UP, 0, 0, 0));
     }
 
     // ==========================================
@@ -290,24 +300,5 @@ public class RuningTest {
 
         Thread.sleep(200);
         Robolectric.flushForegroundThreadScheduler();
-    }
-
-    // ==========================================
-    // 辅助工具方法
-    // ==========================================
-    private FloatingActionButton findFab(Runing activity) {
-        return findFabRecursive(activity.findViewById(android.R.id.content));
-    }
-
-    private FloatingActionButton findFabRecursive(ViewGroup viewGroup) {
-        for (int i = 0; i < viewGroup.getChildCount(); i++) {
-            View child = viewGroup.getChildAt(i);
-            if (child instanceof FloatingActionButton) return (FloatingActionButton) child;
-            if (child instanceof ViewGroup) {
-                FloatingActionButton result = findFabRecursive((ViewGroup) child);
-                if (result != null) return result;
-            }
-        }
-        return null;
     }
 }

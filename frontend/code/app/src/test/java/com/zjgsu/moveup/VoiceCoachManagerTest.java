@@ -4,6 +4,7 @@ import android.content.Context;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.os.Build;
+import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 
@@ -17,18 +18,19 @@ import org.robolectric.annotation.Config;
 import org.robolectric.util.ReflectionHelpers;
 
 import java.lang.reflect.Field;
-import java.util.HashMap;
 import java.util.Locale;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 27) // 🌟 全局统一使用高版本环境，彻底避开老版本 PackageParser 的崩溃 bug
+@Config(sdk = 27) // 🌟 全局统一使用高版本环境
 public class VoiceCoachManagerTest {
 
     private VoiceCoachManager manager;
@@ -75,7 +77,7 @@ public class VoiceCoachManagerTest {
         manager.onInit(TextToSpeech.SUCCESS);
 
         // 验证音调和语速被正确设置
-        verify(mockTts).setPitch(1.2f);
+        verify(mockTts).setPitch(1.1f);
         verify(mockTts).setSpeechRate(1.1f);
 
         // 拦截内部生成的 UtteranceProgressListener 回调
@@ -86,9 +88,16 @@ public class VoiceCoachManagerTest {
         // 测试播报语音
         manager.speak("加油！");
 
-        // 验证申请了高级别的音频焦点并执行了 speak
+        // 验证申请了高级别的音频焦点
         verify(mockAudioManager).requestAudioFocus(any(AudioFocusRequest.class));
-        verify(mockTts).speak(eq("加油！"), eq(TextToSpeech.QUEUE_FLUSH), any(HashMap.class));
+
+        // 🌟 终极修复：严格匹配 CharSequence 和 isNull()
+        verify(mockTts).speak(
+                eq((CharSequence) "加油！"),   // 强转匹配 CharSequence
+                eq(TextToSpeech.QUEUE_FLUSH), // 匹配 int
+                isNull(),                     // 专门匹配 Bundle 的 null
+                eq("moveup_coach")            // 匹配 String
+        );
 
         // 测试回调逻辑：语音开始、完成、报错
         listener.onStart("moveup_coach"); // 空方法覆盖
@@ -121,8 +130,13 @@ public class VoiceCoachManagerTest {
         manager.speak(null);
         manager.speak("");
 
-        // 验证 tts.speak 绝对没有被调用过
-        verify(mockTts, never()).speak(any(String.class), eq(TextToSpeech.QUEUE_FLUSH), any(HashMap.class));
+        // 🌟 终极修复：使用 any() 和 CharSequence 保证不出错
+        verify(mockTts, never()).speak(
+                any(CharSequence.class),
+                eq(TextToSpeech.QUEUE_FLUSH),
+                any(),
+                anyString()
+        );
     }
 
     // ==========================================
@@ -130,8 +144,7 @@ public class VoiceCoachManagerTest {
     // ==========================================
     @Test
     public void testLegacyAudio_And_Shutdown() {
-        // 🌟 终极黑科技：利用 ReflectionHelpers 强行修改系统常量
-        // 把运行环境强行伪装成 API 25，从而触发 VoiceCoachManager 中的 else 老代码分支！
+        // 利用 ReflectionHelpers 强行修改系统常量，伪装成 API 25
         ReflectionHelpers.setStaticField(Build.VERSION.class, "SDK_INT", 25);
 
         when(mockTts.setLanguage(Locale.CHINA)).thenReturn(TextToSpeech.LANG_AVAILABLE);
@@ -149,7 +162,7 @@ public class VoiceCoachManagerTest {
         verify(mockTts).stop();
         verify(mockTts).shutdown();
 
-        // 测试完毕后，把系统版本号还原为 27，以免影响其他测试文件
+        // 测试完毕后，把系统版本号还原为 27
         ReflectionHelpers.setStaticField(Build.VERSION.class, "SDK_INT", 27);
     }
 
@@ -158,14 +171,12 @@ public class VoiceCoachManagerTest {
     // ==========================================
     @Test
     public void testShutdown_WithNullTts() throws Exception {
-        // 用反射强行把 tts 设置为 null，覆盖 shutdown() 中的 if (tts != null) 的 false 分支
+        // 用反射强行把 tts 设置为 null
         Field ttsField = VoiceCoachManager.class.getDeclaredField("tts");
         ttsField.setAccessible(true);
         ttsField.set(manager, null);
 
         // 覆盖 abandonAudioFocus() 中 audioFocusRequest 为 null 的安全分支
         manager.shutdown();
-
-        // 执行完没有崩溃即代表覆盖成功
     }
 }

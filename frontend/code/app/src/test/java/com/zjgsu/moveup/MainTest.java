@@ -60,6 +60,9 @@ public class MainTest {
 
         Main activity = Robolectric.buildActivity(Main.class).create().resume().get();
 
+        TimeUnit.MILLISECONDS.sleep(300);
+        Robolectric.flushForegroundThreadScheduler();
+
         ImageView ivStart = activity.findViewById(R.id.ivStart);
         ivStart.performClick();
         Intent nextIntent1 = ShadowApplication.getInstance().getNextStartedActivity();
@@ -82,8 +85,10 @@ public class MainTest {
 
         Main activity = Robolectric.buildActivity(Main.class).create().resume().get();
 
-        activity.findViewById(R.id.btnMenu).performClick();
+        TimeUnit.MILLISECONDS.sleep(300);
+        Robolectric.flushForegroundThreadScheduler();
 
+        activity.findViewById(R.id.btnMenu).performClick();
         activity.findViewById(R.id.menu_home).performClick();
 
         activity.findViewById(R.id.menu_history).performClick();
@@ -109,6 +114,10 @@ public class MainTest {
             @Override
             public MockResponse dispatch(RecordedRequest request) {
                 try {
+                    String path = request.getPath();
+                    if (path != null && path.contains("/clubs")) {
+                        return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"list\":[]}}");
+                    }
                     JSONObject run1 = new JSONObject().put("title", "Morning Run").put("distance", "5.0 Km");
                     JSONObject run2 = new JSONObject().put("title", "Night Run").put("distance", "3.0 Km");
                     JSONArray listArray = new JSONArray().put(run1).put(run2);
@@ -122,13 +131,12 @@ public class MainTest {
 
         Main activity = Robolectric.buildActivity(Main.class).create().resume().get();
 
+        // 强制等待网络请求完成并更新UI
+        TimeUnit.MILLISECONDS.sleep(400);
+        Robolectric.flushForegroundThreadScheduler();
+
         View card1 = activity.findViewById(R.id.activityCard1);
         View card2 = activity.findViewById(R.id.activityCard2);
-        for (int i = 0; i < 20; i++) {
-            Robolectric.flushForegroundThreadScheduler();
-            if (card2.getVisibility() == View.VISIBLE) break;
-            Thread.sleep(100);
-        }
 
         assertEquals(View.VISIBLE, card1.getVisibility());
         assertEquals(View.VISIBLE, card2.getVisibility());
@@ -140,6 +148,10 @@ public class MainTest {
             @Override
             public MockResponse dispatch(RecordedRequest request) {
                 try {
+                    String path = request.getPath();
+                    if (path != null && path.contains("/clubs")) {
+                        return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"list\":[]}}");
+                    }
                     JSONObject run1 = new JSONObject().put("title", "Solo Run").put("distance", "5.0 Km");
                     JSONArray listArray = new JSONArray().put(run1);
                     return new MockResponse().setResponseCode(200)
@@ -152,13 +164,12 @@ public class MainTest {
 
         Main activity = Robolectric.buildActivity(Main.class).create().resume().get();
 
+        // 🌟 核心修复：强制等待网络请求完成并更新UI，避免 UI 默认可见导致的误判
+        TimeUnit.MILLISECONDS.sleep(400);
+        Robolectric.flushForegroundThreadScheduler();
+
         View card1 = activity.findViewById(R.id.activityCard1);
         View card2 = activity.findViewById(R.id.activityCard2);
-        for (int i = 0; i < 20; i++) {
-            Robolectric.flushForegroundThreadScheduler();
-            if (card1.getVisibility() == View.VISIBLE) break;
-            Thread.sleep(100);
-        }
 
         assertEquals(View.VISIBLE, card1.getVisibility());
         assertEquals(View.GONE, card2.getVisibility());
@@ -175,11 +186,11 @@ public class MainTest {
 
         Main activity = Robolectric.buildActivity(Main.class).create().resume().get();
 
+        TimeUnit.MILLISECONDS.sleep(400);
+        Robolectric.flushForegroundThreadScheduler();
+
         View card1 = activity.findViewById(R.id.activityCard1);
         View card2 = activity.findViewById(R.id.activityCard2);
-
-        TimeUnit.MILLISECONDS.sleep(300);
-        Robolectric.flushForegroundThreadScheduler();
 
         assertEquals(View.GONE, card1.getVisibility());
         assertEquals(View.GONE, card2.getVisibility());
