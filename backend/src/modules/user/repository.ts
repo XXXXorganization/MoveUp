@@ -30,6 +30,14 @@ export class UserRepository {
     return this.userModel.update(id, userData);
   }
 
+  async findPasswordHash(phone: string): Promise<{ id: string; password_hash: string } | undefined> {
+    return this.userModel.findPasswordHash(phone);
+  }
+
+  async createWithPassword(phone: string, nickname: string, passwordHash: string): Promise<User> {
+    return this.userModel.createWithPassword(phone, nickname, passwordHash);
+  }
+
   async getUserStats(userId: string) {
     return this.userModel.getUserStats(userId);
   }
