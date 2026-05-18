@@ -17,8 +17,19 @@ export class UserModel {
     return this.db('users').where({ phone }).first();
   }
 
+  async findPasswordHash(phone: string): Promise<{ id: string; password_hash: string } | undefined> {
+    return this.db('users').where({ phone }).select('id', 'password_hash').first();
+  }
+
   async create(userData: Omit<User, 'id' | 'created_at' | 'updated_at'>): Promise<User> {
     const [newUser] = await this.db('users').insert(userData).returning('*');
+    return newUser;
+  }
+
+  async createWithPassword(phone: string, nickname: string, passwordHash: string): Promise<User> {
+    const [newUser] = await this.db('users')
+      .insert({ phone, nickname, password_hash: passwordHash })
+      .returning('*');
     return newUser;
   }
 
