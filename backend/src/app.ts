@@ -36,6 +36,18 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 请求日志（调试用，看前端有没有调进来）
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} [${req.ip}]`);
+  if (req.method !== 'GET' && req.body && Object.keys(req.body).length > 0) {
+    console.log('  Body:', JSON.stringify(req.body));
+  }
+  if (req.headers.authorization) {
+    console.log('  Auth:', req.headers.authorization.slice(0, 30) + '...');
+  }
+  next();
+});
+
 // 依赖注入
 const userRepository = new UserRepository(db);
 const userService = new UserService(userRepository, process.env.JWT_SECRET || 'your-secret-key', parseInt(process.env.JWT_EXPIRES_IN || '7200'));
@@ -59,6 +71,10 @@ const challengeController = new ChallengeController(challengeService);
 
 const aiService = new AIService();
 const aiController = new AIController(aiService);
+
+// 兼容 mock 后端路由（桥接前端旧 API 到真实后端）
+import { createCompatRoutes } from './routes/compat';
+app.use('/v1', createCompatRoutes(userService, userRepository, sportService));
 
 // 路由
 app.use('/v1', createUserRoutes(userController));
