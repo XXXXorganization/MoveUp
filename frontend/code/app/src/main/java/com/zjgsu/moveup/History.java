@@ -34,10 +34,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class History extends AppCompatActivity {
 
-    // 🌟 新增：设为 public static 方便测试代码动态修改网络地址
     public static String BASE_URL = "http://10.0.2.2:3000";
 
     private RecyclerView list;
@@ -53,7 +53,6 @@ public class History extends AppCompatActivity {
     private TextView summaryPaceValue;
     private TextView summaryTimeValue;
 
-    // 增加 DrawerLayout 引用
     private DrawerLayout drawerLayout;
 
     @Override
@@ -94,6 +93,7 @@ public class History extends AppCompatActivity {
 
         setupMenuClicks();
 
+        // 获取数据并由前端负责汇总计算
         fetchHistoryData();
     }
 
@@ -133,7 +133,6 @@ public class History extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                // 🌟 修改点 1：动态拼接 URL
                 URL url = new URL(BASE_URL + "/v1/runs?user_id=" + currentUserId);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
@@ -155,35 +154,77 @@ public class History extends AppCompatActivity {
                     JSONObject resp = new JSONObject(sb.toString());
                     if (resp.optInt("code") == 200) {
                         JSONObject data = resp.getJSONObject("data");
-
-                        JSONObject stats = data.optJSONObject("stats");
-                        String totalDistance = stats != null ? stats.optString("total_distance", "0") : "0";
-                        String totalRuns = stats != null ? stats.optString("total_runs", "0") : "0";
-                        String avgPace = stats != null ? stats.optString("avg_pace", "0'00\"") : "0'00\"";
-                        String totalDurationStr = stats != null ? stats.optString("total_duration_str", "0h") : "0h";
-
                         JSONArray listArray = data.optJSONArray("list");
-                        runList.clear();
+
+                        // ==========================================
+                        // 🌟 核心修复：线程安全的数据构建
+                        // ==========================================
+                        List<HistoryRun> tempRuns = new ArrayList<>();
+                        double totalDistanceKm = 0.0;
+                        long totalTimeMs = 0;
+                        int totalRunsCount = 0;
+
                         if (listArray != null) {
-                            for (int i = 0; i < listArray.length(); i++) {
+                            totalRunsCount = listArray.length();
+                            for (int i = 0; i < totalRunsCount; i++) {
                                 JSONObject obj = listArray.getJSONObject(i);
-                                runList.add(new HistoryRun(
-                                        obj.optString("id", "run_" + i),
-                                        obj.optString("date", "未知时间"),
-                                        obj.optString("title", "跑步记录"),
-                                        obj.optString("duration_str", "0.00"),
-                                        obj.optString("pace", "0'00\""),
-                                        obj.optString("distance", "0.00 Km")
-                                ));
+
+                                String id = obj.optString("id", "run_" + i);
+                                String date = obj.optString("date", "未知时间");
+                                String title = obj.optString("title", "Outdoor Run");
+                                String durationStr = obj.optString("duration_str", "00:00.00");
+                                String pace = obj.optString("pace", "0'00\"");
+                                String distanceStr = obj.optString("distance", "0.00 Km");
+
+                                // 放入临时列表，不直接操作 UI 绑定的 runList
+                                tempRuns.add(new HistoryRun(id, date, title, durationStr, pace, distanceStr));
+
+                                // 1. 累加每一次的距离
+                                try {
+                                    String cleanDist = distanceStr.replace(" Km", "").trim();
+                                    totalDistanceKm += Double.parseDouble(cleanDist);
+                                } catch (Exception ignored) {}
+
+                                // 2. 累加每一次的时间 (转换为毫秒)
+                                totalTimeMs += parseDurationToMs(durationStr);
                             }
                         }
 
+                        // ==========================================
+                        // 🌟 格式化汇总数据
+                        // ==========================================
+                        // 总距离和总次数
+                        final String finalTotalKm = String.format(Locale.US, "%.2f", totalDistanceKm);
+                        final String finalRunCount = String.valueOf(totalRunsCount);
+
+                        // 总时间 (完全按照要求： 分:秒:毫秒 格式，如 105:30:500)
+                        long totalMilliRemainder = totalTimeMs % 1000;
+                        long totalSec = (totalTimeMs / 1000) % 60;
+                        long totalMin = (totalTimeMs / 60000);
+                        final String finalTotalTime = String.format(Locale.US, "%02d:%02d:%03d", totalMin, totalSec, totalMilliRemainder);
+
+                        // 平均配速 (通过总时间/总距离计算)
+                        String tempAvgPace = "0'00\"";
+                        if (totalDistanceKm >= 0.01) {
+                            long totalSecForPace = totalTimeMs / 1000;
+                            float paceSecPerKm = (float) (totalSecForPace / totalDistanceKm);
+                            int pm = (int) (paceSecPerKm / 60);
+                            int ps = (int) (paceSecPerKm % 60);
+                            tempAvgPace = pm + "'" + String.format(Locale.US, "%02d", ps) + "\"";
+                        }
+                        final String finalAvgPace = tempAvgPace;
+
+                        // 🌟 最后一步：切回主线程安全更新界面
                         mainHandler.post(() -> {
-                            totalKmValue.setText(totalDistance);
-                            summaryRunValue.setText(totalRuns);
-                            summaryPaceValue.setText(avgPace);
-                            summaryTimeValue.setText(totalDurationStr);
-                            adapter.notifyDataSetChanged();
+                            runList.clear();           // 安全清空旧数据
+                            runList.addAll(tempRuns);  // 添加重新计算好的新数据
+
+                            totalKmValue.setText(finalTotalKm);
+                            summaryRunValue.setText(finalRunCount);
+                            summaryTimeValue.setText(finalTotalTime); // 分:秒:毫秒
+                            summaryPaceValue.setText(finalAvgPace);
+
+                            adapter.notifyDataSetChanged(); // 刷新列表
                         });
                     }
                 }
@@ -193,6 +234,38 @@ public class History extends AppCompatActivity {
                 if (connection != null) connection.disconnect();
             }
         }).start();
+    }
+
+    /**
+     * 将格式为 "MM:SS.ms" (跑步页面产生的格式) 或 "MM.SS" (Mock假数据) 统一精确解析为毫秒
+     */
+    private long parseDurationToMs(String durationStr) {
+        long ms = 0;
+        try {
+            if (durationStr.contains(":")) {
+                // 处理真实跑步数据 "05:30.50" 格式
+                String[] parts = durationStr.split(":");
+                long min = Long.parseLong(parts[0].trim());
+                String[] secParts = parts[1].split("\\.");
+                long sec = Long.parseLong(secParts[0].trim());
+                long milli = 0;
+                if (secParts.length > 1) {
+                    String fraction = secParts[1].trim();
+                    // 如果是两位数(百分秒)则乘以10转毫秒；三位数直接当毫秒
+                    milli = fraction.length() == 2 ? Long.parseLong(fraction) * 10 : Long.parseLong(fraction);
+                }
+                ms = (min * 60 * 1000) + (sec * 1000) + milli;
+            } else if (durationStr.contains(".")) {
+                // 兼容处理后端假数据 "25.30" (25分钟30秒) 这种格式
+                String[] parts = durationStr.split("\\.");
+                long min = Long.parseLong(parts[0].trim());
+                long sec = parts.length > 1 ? Long.parseLong(parts[1].trim()) : 0;
+                ms = (min * 60 * 1000) + (sec * 1000);
+            }
+        } catch (Exception e) {
+            Log.e("History", "解析时间失败: " + durationStr);
+        }
+        return ms;
     }
 
     private void initiateShareSequence(@NonNull HistoryRun run) {
@@ -207,7 +280,6 @@ public class History extends AppCompatActivity {
     private void fetchMyClubsAndShowDialog(HistoryRun run) {
         new Thread(() -> {
             try {
-                // 🌟 修改点 2：动态拼接 URL
                 URL url = new URL(BASE_URL + "/v1/user/clubs?user_id=" + currentUserId);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
@@ -283,7 +355,6 @@ public class History extends AppCompatActivity {
     private void uploadSharePost(HistoryRun run, Club club, String content) {
         new Thread(() -> {
             try {
-                // 🌟 修改点 3：动态拼接 URL
                 URL url = new URL(BASE_URL + "/v1/clubs/" + club.id + "/posts");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");

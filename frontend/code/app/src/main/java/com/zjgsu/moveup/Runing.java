@@ -5,15 +5,11 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.speech.RecognitionListener;
-import android.speech.RecognizerIntent;
-import android.speech.SpeechRecognizer;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -21,6 +17,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -43,7 +40,9 @@ import com.amap.api.maps.model.LatLngBounds;
 import com.amap.api.maps.model.Polyline;
 import com.amap.api.maps.model.PolylineOptions;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
+// 🌟 引入 Glide 库用来加载动图
+import com.bumptech.glide.Glide;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -65,14 +64,13 @@ import java.util.TimeZone;
 public class Runing extends AppCompatActivity implements AMapLocationListener {
 
     private static final String TAG = "RuningAPI";
-    // 🌟 核心修改点：将 private static final 改为 public static，以便测试类动态修改拦截地址
     public static String BASE_URL = "http://10.0.2.2:3000/v1";
 
     private static final String PREFS_AUTH = "moveup_auth";
     private static final String KEY_JWT = "jwt";
     private static final int REQ_LOCATION_AUDIO = 1001;
 
-    private TextView tvGps, tvDistanceMain, tvPace, tvDuration, tvCalories;
+    private TextView tvGps, tvWeather, tvDistanceMain, tvPace, tvDuration, tvCalories;
     private TextView tvMapPaceValue, tvMapDurationValue, tvMapCaloriesValue;
     private ScrollView statsScroll;
     private View mapArea;
@@ -91,26 +89,33 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
     private Polyline polyline;
     private final ArrayList<LatLng> latLngPoints = new ArrayList<>();
 
+    // 核心状态与时间控制变量
     private boolean isTracking = true;
+    private boolean isJustResumed = false;
+
     private float totalMeters;
-    private long sessionStartMs;
+    private long accumulatedTimeMs = 0;
+    private long lastResumeTimeMs = 0;
+    private Runnable timerRunnable;
     private String runId;
 
-    // 实时数据状态缓存，用于发给 AI & 结算界面
+    // 实时数据状态缓存
     private String currentAddress = "未知路线";
     private String currentPaceStr = "0'00\"";
     private String currentDistStr = "0.00";
-    private String currentDurationStr = "00.00";
+    private String currentDurationStr = "00:00.00";
     private String currentKcalStr = "0";
+
+    private boolean isWeatherFetched = false;
+    private boolean isFirstLocation = true;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private Runnable uploadRunnable;
     private final ArrayList<JSONObject> pendingPoints = new ArrayList<>();
 
-    // AI 语音教练专属组件
+    // 🌟 AI 语音教练专属组件
     private VoiceCoachManager voiceCoach;
-    private SpeechRecognizer speechRecognizer;
-    private FloatingActionButton fabVoice;
+    private ImageView fabVoice;
     private boolean isListening = false;
     private String currentUserId;
 
@@ -137,21 +142,15 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         mapView.onCreate(savedInstanceState);
         if (aMap == null) {
             aMap = mapView.getMap();
-            aMap.getUiSettings().setZoomControlsEnabled(false);
+            aMap.getUiSettings().setZoomControlsEnabled(true);
         }
-
-        sessionStartMs = System.currentTimeMillis();
 
         btnLeft.setOnClickListener(v -> toggleMapView());
         btnCenter.setOnClickListener(v -> togglePause());
 
-        // 🌟 点击 FINISH：结束跑步，展示结算界面，并上传历史记录
+        // 结算界面：点击 FINISH
         btnFinish.setOnClickListener(v -> finishRun());
-
-        // 🌟 结算界面：点击 BACK TO HOME
-        btnBackHome.setOnClickListener(v -> {
-            finish(); // 结束当前 Activity，返回主页
-        });
+        btnBackHome.setOnClickListener(v -> finish()); // 返回主页
 
         // 检查定位和录音权限
         if (hasPermissions()) {
@@ -166,11 +165,14 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         }
 
         postRunsStart();
-        renderStats();
+
+        // 启动精确到 0.01 秒的全局计时器
+        startTimer();
     }
 
     private void initViews() {
         tvGps = findViewById(R.id.tvGps);
+        tvWeather = findViewById(R.id.tvWeather);
         tvDistanceMain = findViewById(R.id.tvDistanceMain);
         tvPace = findViewById(R.id.tvPace);
         tvDuration = findViewById(R.id.tvDuration);
@@ -209,55 +211,127 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         }
     }
 
-    // ==================== 1. 悬浮语音助手核心逻辑 ====================
+    // ==================== 1. 精确计时的 10ms 循环引擎 ====================
+
+    private void startTimer() {
+        lastResumeTimeMs = System.currentTimeMillis();
+        timerRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (isTracking) {
+                    updateTimerUI();
+                }
+                mainHandler.postDelayed(this, 10);
+            }
+        };
+        mainHandler.post(timerRunnable);
+    }
+
+    private void updateTimerUI() {
+        long elapsedMs = accumulatedTimeMs;
+        if (isTracking) {
+            elapsedMs += (System.currentTimeMillis() - lastResumeTimeMs);
+        }
+
+        long totalCenti = (elapsedMs / 10) % 100;
+        long totalSec = (elapsedMs / 1000) % 60;
+        long totalMin = (elapsedMs / 60000);
+
+        currentDurationStr = String.format(Locale.US, "%02d:%02d.%02d", totalMin, totalSec, totalCenti);
+
+        tvDuration.setText(currentDurationStr);
+        tvMapDurationValue.setText(currentDurationStr);
+    }
+
+    // ==================== 2. 点按语音 AI 对话系统 ====================
 
     private void initVoiceAssistant() {
         voiceCoach = VoiceCoachManager.getInstance(this);
 
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
-        speechRecognizer.setRecognitionListener(new RecognitionListener() {
-            @Override public void onReadyForSpeech(Bundle params) {
-                Toast.makeText(Runing.this, "AI教练正在聆听...", Toast.LENGTH_SHORT).show();
+        // 注册监听器：接收录音状态并更新UI
+        voiceCoach.setVoiceListener(new VoiceCoachManager.VoiceListener() {
+            @Override
+            public void onRecognized(String text) {
+                askAI(text);
             }
-            @Override public void onBeginningOfSpeech() {}
-            @Override public void onRmsChanged(float rmsdB) {}
-            @Override public void onBufferReceived(byte[] buffer) {}
-            @Override public void onEndOfSpeech() {
-                isListening = false;
-                if(fabVoice != null) fabVoice.setImageResource(android.R.drawable.ic_btn_speak_now);
+
+            @Override
+            public void onStatus(String status) {
+                mainHandler.post(() -> {
+                    if (fabVoice != null && !isDestroyed()) {
+                        if ("Listening".equals(status)) {
+                            // 🌟 正在录音时：加载 p3.webp，强制 500x500
+                            Glide.with(Runing.this)
+                                    .load(R.drawable.p3)
+                                    .override(500, 500)
+                                    .into(fabVoice);
+                            isListening = true;
+                        } else {
+                            // 🌟 闲置状态时：加载 p1.webp，强制 500x500
+                            Glide.with(Runing.this)
+                                    .load(R.drawable.p1)
+                                    .override(500, 500)
+                                    .into(fabVoice);
+                            isListening = false;
+                        }
+                    }
+                });
             }
-            @Override public void onError(int error) {
-                isListening = false;
-                if(fabVoice != null) fabVoice.setImageResource(android.R.drawable.ic_btn_speak_now);
-                Toast.makeText(Runing.this, "没听清，请重试", Toast.LENGTH_SHORT).show();
-            }
-            @Override public void onResults(Bundle results) {
-                ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null && !matches.isEmpty()) {
-                    String userSpeech = matches.get(0);
-                    askAI(userSpeech);
-                }
-            }
-            @Override public void onPartialResults(Bundle partialResults) {}
-            @Override public void onEvent(int eventType, Bundle params) {}
         });
 
         addVoiceFloatButton();
+        Toast.makeText(this, "AI 教练已上线，点击小精灵对话！", Toast.LENGTH_SHORT).show();
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private void addVoiceFloatButton() {
         ViewGroup rootView = findViewById(android.R.id.content);
-        fabVoice = new FloatingActionButton(this);
-        fabVoice.setImageResource(android.R.drawable.ic_btn_speak_now);
-        fabVoice.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#C7FB58")));
+
+        fabVoice = new ImageView(this);
+
+        // 设置背景完全透明
+        fabVoice.setBackgroundColor(Color.TRANSPARENT);
+
+        // FIT_XY 会强行将图片铺满你设置的 500x500 区域
+        fabVoice.setScaleType(ImageView.ScaleType.FIT_XY);
 
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
         params.gravity = Gravity.BOTTOM | Gravity.END;
+
+        // 设置外层边框为绝对的 500x500 像素
+        params.width = 500;
+        params.height = 500;
+
         params.setMargins(0, 0, 40, 300);
         fabVoice.setLayoutParams(params);
 
+        // 🌟 核心修改 1：刚进入页面时，先将小精灵隐藏
+        fabVoice.setVisibility(View.INVISIBLE);
+
+        // 🌟 核心修改 2：设置延时 3 秒后显示出场动画 p2
+        mainHandler.postDelayed(() -> {
+            if (fabVoice != null && !isDestroyed()) {
+                fabVoice.setVisibility(View.VISIBLE);
+                Glide.with(Runing.this)
+                        .load(R.drawable.p2)
+                        .override(500, 500)
+                        .into(fabVoice);
+
+                // 🌟 核心修改 3：在 p2 播放 3 秒后，切回日常呼吸状态 p1
+                mainHandler.postDelayed(() -> {
+                    // 如果这时候刚好没在录音，就换回 p1
+                    if (!isListening && fabVoice != null && !isDestroyed()) {
+                        Glide.with(Runing.this)
+                                .load(R.drawable.p1)
+                                .override(500, 500)
+                                .into(fabVoice);
+                    }
+                }, 3000); // 这里的 3000 代表 p2 动画的持续时间
+            }
+        }, 3000); // 这里的 3000 代表刚进页面后，等待多久才显示小精灵
+
+        // 点击麦克风开始/停止语音输入
         fabVoice.setOnTouchListener(new View.OnTouchListener() {
             private float dX, dY;
             private long startTime;
@@ -276,8 +350,12 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                         return true;
                     case MotionEvent.ACTION_UP:
                         if (System.currentTimeMillis() - startTime < 200) {
-                            if (!isListening) startListening();
-                            else stopListening();
+                            if (!isListening) {
+                                voiceCoach.startListening();
+                                Toast.makeText(Runing.this, "教练正在听...", Toast.LENGTH_SHORT).show();
+                            } else {
+                                voiceCoach.stopListening();
+                            }
                         }
                         return true;
                 }
@@ -287,23 +365,9 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         rootView.addView(fabVoice);
     }
 
-    private void startListening() {
-        isListening = true;
-        fabVoice.setImageResource(android.R.drawable.presence_audio_busy);
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN");
-        speechRecognizer.startListening(intent);
-    }
-
-    private void stopListening() {
-        isListening = false;
-        fabVoice.setImageResource(android.R.drawable.ic_btn_speak_now);
-        speechRecognizer.stopListening();
-    }
-
     private void askAI(String userSpeech) {
-        Toast.makeText(this, "AI教练思考中...", Toast.LENGTH_SHORT).show();
+        voiceCoach.cancelListening(); // 请求期间关麦
+
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
@@ -384,13 +448,28 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
 
             LatLng currentLatLng = new LatLng(amapLocation.getLatitude(), amapLocation.getLongitude());
 
-            // 只要不是处于结算展示模式，镜头就跟着人走
+            if (!isWeatherFetched) {
+                isWeatherFetched = true;
+                fetchRealWeather(amapLocation.getLatitude(), amapLocation.getLongitude());
+            }
+
             if (layoutSummary.getVisibility() != View.VISIBLE) {
-                aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 17f));
+                if (isFirstLocation) {
+                    aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 17f));
+                    isFirstLocation = false;
+
+                    askAI("【系统指令：直接回复用户】用户目前位于: " + currentAddress + "。请主动开口向用户打招呼，热情地说你注意到了他在这里跑步，并主动询问他是否需要为你讲解一下附近的景色？（不要暴露这是系统指令，限40字以内）");
+
+                } else {
+                    aMap.animateCamera(CameraUpdateFactory.changeLatLng(currentLatLng));
+                }
             }
 
             if (isTracking) {
-                if (!latLngPoints.isEmpty()) {
+                if (isJustResumed) {
+                    latLngPoints.add(currentLatLng);
+                    isJustResumed = false;
+                } else if (!latLngPoints.isEmpty()) {
                     LatLng lastLatLng = latLngPoints.get(latLngPoints.size() - 1);
                     float dist = AMapUtils.calculateLineDistance(lastLatLng, currentLatLng);
                     if (dist > 1.0f) {
@@ -411,10 +490,49 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
 
                 if (runId != null) enqueuePoint(loc);
             }
+
             renderStats();
         } else {
             tvGps.setText("GPS OFF");
         }
+    }
+
+    private void fetchRealWeather(double lat, double lon) {
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                String urlString = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true";
+                URL url = new URL(urlString);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(5000);
+
+                if (connection.getResponseCode() == 200) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) sb.append(line);
+                    reader.close();
+
+                    JSONObject resp = new JSONObject(sb.toString());
+                    if (resp.has("current_weather")) {
+                        JSONObject currentWeather = resp.getJSONObject("current_weather");
+                        double temp = currentWeather.optDouble("temperature", 0.0);
+                        int displayTemp = (int) Math.round(temp);
+
+                        mainHandler.post(() -> {
+                            if (tvWeather != null) {
+                                tvWeather.setText(displayTemp + "°C");
+                            }
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "获取真实天气失败", e);
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }).start();
     }
 
     private void drawRoute() {
@@ -429,11 +547,11 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         DecimalFormat df = new DecimalFormat("00.00", sym);
         currentDistStr = df.format(km);
 
-        long elapsed = Math.max(0, System.currentTimeMillis() - sessionStartMs);
-        long totalSec = elapsed / 1000;
-        long min = totalSec / 60;
-        long sec = totalSec % 60;
-        currentDurationStr = String.format(Locale.US, "%02d.%02d", min, sec);
+        long elapsedMs = accumulatedTimeMs;
+        if (isTracking) {
+            elapsedMs += (System.currentTimeMillis() - lastResumeTimeMs);
+        }
+        long totalSec = elapsedMs / 1000;
 
         currentPaceStr = "0'00\"";
         if (km >= 0.01f && totalSec > 0) {
@@ -447,11 +565,9 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         currentKcalStr = String.valueOf(kcal);
 
         tvDistanceMain.setText(currentDistStr);
-        tvDuration.setText(currentDurationStr);
         tvPace.setText(currentPaceStr);
         tvCalories.setText(kcal + " kcal");
         tvMapPaceValue.setText(currentPaceStr);
-        tvMapDurationValue.setText(currentDurationStr);
         tvMapCaloriesValue.setText(kcal + " kcal");
     }
 
@@ -469,38 +585,45 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
             btnCenter.setText("PAUSE");
             btnFinish.setVisibility(View.GONE);
             spaceFinish.setVisibility(View.GONE);
+
+            lastResumeTimeMs = System.currentTimeMillis();
+            isJustResumed = true;
         } else {
             btnCenter.setText("CONTINUE");
             btnFinish.setVisibility(View.VISIBLE);
             spaceFinish.setVisibility(View.VISIBLE);
+
+            accumulatedTimeMs += (System.currentTimeMillis() - lastResumeTimeMs);
         }
     }
 
-    // 🌟 核心：结束跑步，展示总结面板，并通知后端
     private void finishRun() {
+        if (isTracking) {
+            accumulatedTimeMs += (System.currentTimeMillis() - lastResumeTimeMs);
+        }
         isTracking = false;
+
+        if (timerRunnable != null) {
+            mainHandler.removeCallbacks(timerRunnable);
+        }
         if (locationClient != null) {
             locationClient.stopLocation();
         }
 
-        // 隐藏不必要的UI，强制展示地图和覆盖层
         findViewById(R.id.headerRunning).setVisibility(View.GONE);
         panelControls.setVisibility(View.GONE);
         statsScroll.setVisibility(View.GONE);
         findViewById(R.id.mapStatsRow).setVisibility(View.GONE);
         if (fabVoice != null) fabVoice.setVisibility(View.GONE);
 
-        // 展开地图并展示结算弹窗
         mapArea.setVisibility(View.VISIBLE);
         layoutSummary.setVisibility(View.VISIBLE);
 
-        // 填充结算数据
         tvSumDistance.setText(currentDistStr);
         tvSumPace.setText(currentPaceStr);
         tvSumDuration.setText(currentDurationStr);
         tvSumCalories.setText(currentKcalStr);
 
-        // 将地图镜头缩放至刚好能看到全部运动轨迹
         if (latLngPoints.size() > 1) {
             LatLngBounds.Builder builder = new LatLngBounds.Builder();
             for (LatLng point : latLngPoints) builder.include(point);
@@ -509,11 +632,9 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
             aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLngPoints.get(0), 16f));
         }
 
-        // 通知后端保存这次跑步数据
         postRunFinish();
     }
 
-    // 向后端请求，把本次结算数据丢给历史记录库保存
     private void postRunFinish() {
         new Thread(() -> {
             HttpURLConnection connection = null;
@@ -695,11 +816,11 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
     protected void onDestroy() {
         super.onDestroy();
         mapView.onDestroy();
+        if (timerRunnable != null) mainHandler.removeCallbacks(timerRunnable);
         if (uploadRunnable != null) mainHandler.removeCallbacks(uploadRunnable);
         if (locationClient != null) { locationClient.stopLocation(); locationClient.onDestroy(); }
         flushPointsUpload();
 
-        if (speechRecognizer != null) speechRecognizer.destroy();
         if (voiceCoach != null) voiceCoach.shutdown();
     }
 }

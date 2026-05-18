@@ -94,15 +94,17 @@ public class HistoryTest {
         TextView tvTotalKm = activity.findViewById(R.id.totalKmValue);
         for (int i = 0; i < 20; i++) {
             Robolectric.flushForegroundThreadScheduler();
-            if ("0".equals(tvTotalKm.getText().toString())) break;
+            // 🌟 修复 1：适配 History.java 中的 "0.00" 格式
+            if ("0.00".equals(tvTotalKm.getText().toString())) break;
             Thread.sleep(100);
         }
 
-        // 验证所有的 null 防御机制生效，赋予了正确的默认值
-        assertEquals("0", tvTotalKm.getText().toString());
+        // 🌟 修复 2：验证所有的 null 防御机制生效，匹配最新的 UI 格式显示
+        assertEquals("0.00", tvTotalKm.getText().toString());
         assertEquals("0", ((TextView) activity.findViewById(R.id.summaryRunValue)).getText().toString());
         assertEquals("0'00\"", ((TextView) activity.findViewById(R.id.summaryPaceValue)).getText().toString());
-        assertEquals("0h", ((TextView) activity.findViewById(R.id.summaryTimeValue)).getText().toString());
+        // 🌟 修复 3：适配 History.java 中 "%02d:%02d:%03d" 的 00:00:000 格式
+        assertEquals("00:00:000", ((TextView) activity.findViewById(R.id.summaryTimeValue)).getText().toString());
     }
 
     // ==========================================
