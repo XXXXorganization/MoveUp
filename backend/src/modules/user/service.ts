@@ -2,6 +2,7 @@
 import { UserRepository } from './repository';
 import { User, CreateUserRequest, UpdateUserRequest, LoginRequest, LoginResponse, SendCodeRequest, UserProfileResponse } from './types';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { AppError } from '../../utils/errors';
 
 export class UserService {
@@ -35,22 +36,27 @@ export class UserService {
   async login(request: LoginRequest): Promise<LoginResponse> {
     const { phone, code } = request;
 
-    // 验证验证码
+    // 先尝试验证码登录
     const storedCode = this.verificationCodes.get(`${phone}_login`);
-    if (!storedCode || storedCode.code !== code || storedCode.expires < Date.now()) {
-      throw new AppError('验证码无效或已过期', 400);
-    }
+    const isVerificationCode = storedCode && storedCode.code === code && storedCode.expires > Date.now();
 
-    // 清除已使用的验证码
-    this.verificationCodes.delete(`${phone}_login`);
+    if (isVerificationCode) {
+      this.verificationCodes.delete(`${phone}_login`);
+    } else {
+      // 验证码不通过 → 尝试密码登录
+      const row = await this.userRepository.findPasswordHash(phone);
+      if (!row || !row.password_hash || !bcrypt.compareSync(code, row.password_hash)) {
+        throw new AppError('验证码或密码错误', 400);
+      }
+    }
 
     // 查找用户，如果不存在则创建
     let user = await this.userRepository.findByPhone(phone);
     if (!user) {
-      // 自动注册新用户
+      // 自动注册新用户（仅验证码登录会走到这里）
       const createData: CreateUserRequest = {
         phone,
-        nickname: `用户${phone.slice(-4)}`, // 默认昵称
+        nickname: `用户${phone.slice(-4)}`,
       };
       user = await this.userRepository.create(createData);
     }
