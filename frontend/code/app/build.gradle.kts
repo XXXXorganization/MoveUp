@@ -79,7 +79,7 @@ dependencies {
 
     // 用来测试 Fragment 生命周期的官方库 (解决 testing 爆红)
     // 注意：这里必须是 debugImplementation，因为测试 Fragment 需要一个空的 Debug Activity 容器
-    debugImplementation("androidx.fragment:fragment-testing:1.6.2")
+    debugImplementation("androidx.fragment:fragment-testing:1.8.9")
 }
 
 // 🌟 4. 注册生成覆盖率报告的任务
