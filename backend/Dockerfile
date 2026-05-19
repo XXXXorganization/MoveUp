@@ -38,9 +38,10 @@ COPY package*.json ./
 # 仅安装生产依赖
 RUN npm ci --only=production && npm cache clean --force
 
-# 从构建阶段复制编译后的代码
+# 从构建阶段复制编译后的代码和配置
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/migrations ./migrations
+COPY --from=builder --chown=nodejs:nodejs /app/knexfile.js ./knexfile.js
 
 # 切换到非 root 用户
 USER nodejs
@@ -54,4 +55,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 
 # 使用 dumb-init 启动应用
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/src/server.js"]
