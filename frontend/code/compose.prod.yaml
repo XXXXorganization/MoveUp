@@ -1,0 +1,33 @@
+services:
+  # 这是你之前做好的 Android App 下载页
+  android-web:
+    build: .  # 指向 frontend/code 目录下的 Dockerfile
+    ports:
+      - "80:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # 🌟 这是你刚刚加进来的 Mock 后端
+  mock-backend:
+    build: ../routes  # 指向 frontend/routes 目录下的 Dockerfile
+    ports:
+      - "3000:3000"   # 映射 3000 端口
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    # Node.js 原生的健康检查（确保后端真正启动成功）
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/v1/clubs"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
