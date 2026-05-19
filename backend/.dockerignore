@@ -10,10 +10,8 @@ tests
 jest.config.js
 jest.setup.js
 
-# TypeScript
-*.ts
-!*.d.ts
-tsconfig.build.json
+# 编译产物（在 Docker 内重新构建）
+dist
 
 # Git
 .git
