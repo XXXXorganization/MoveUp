@@ -36,7 +36,7 @@ describe('ClubService', () => {
   describe('getClubs', () => {
     it('should return clubs with membership info', async () => {
       mockRepository.findAllClubs.mockResolvedValue([
-        { id: 'c1', name: 'Club1', location: 'HZ', flag: 'CN', image_url: null, description: null, creator_id: null, created_at: '', updated_at: '' },
+        { id: 'c1', name: 'Club1', location: 'HZ', flag: 'CN', image_url: undefined, description: undefined, creator_id: undefined, created_at: '', updated_at: '' },
       ]);
       mockRepository.getUserClubIds.mockResolvedValue(['c1']);
       mockRepository.getMemberCount.mockResolvedValue(5);
@@ -75,7 +75,7 @@ describe('ClubService', () => {
 
   describe('createPost', () => {
     it('should create post and return with author', async () => {
-      mockRepository.createPost.mockResolvedValue({ id: 'p1', club_id: 'c1', user_id: userId, content: 'hello', run_id: null, created_at: '' });
+      mockRepository.createPost.mockResolvedValue({ id: 'p1', club_id: 'c1', user_id: userId, content: 'hello', run_id: undefined, created_at: '' });
       mockRepository.getUserById.mockResolvedValue({ id: userId, nickname: 'TestUser', avatar: null });
 
       const result = await svc.createPost('c1', userId, 'hello');
@@ -110,7 +110,7 @@ describe('ClubService', () => {
   describe('addComment', () => {
     it('should create comment and return with author', async () => {
       mockRepository.getPostById.mockResolvedValue({ id: 'p1' } as any);
-      mockRepository.createComment.mockResolvedValue({ id: 'c1', post_id: 'p1', user_id: userId, content: 'nice', reply_to_id: null, created_at: '' });
+      mockRepository.createComment.mockResolvedValue({ id: 'c1', post_id: 'p1', user_id: userId, content: 'nice', reply_to_id: undefined, created_at: '' });
       mockRepository.getUserById.mockResolvedValue({ id: userId, nickname: 'Commenter', avatar: null });
 
       const result = await svc.addComment('p1', userId, 'nice');

@@ -23,7 +23,8 @@ const mockSportService = {
 
 // Mock DB that supports db('table').where().orderBy() chain
 const createChainable = (resolveVal: any = []) => {
-  const chain: any = jest.fn().mockReturnValue(chain);
+  const chain: any = jest.fn();
+  chain.mockReturnValue(chain);
   chain.where = jest.fn().mockReturnValue(chain);
   chain.orderBy = jest.fn().mockReturnValue(chain);
   chain.sum = jest.fn().mockReturnValue(chain);
