@@ -9,6 +9,9 @@ export const createUserRoutes = (userController: UserController): Router => {
   // 发送验证码
   router.post('/auth/code', userController.sendVerificationCode.bind(userController));
 
+  // 密码注册（Android兼容）
+  router.post('/auth/register', userController.registerWithPassword.bind(userController));
+
   // 用户登录/注册
   router.post('/auth/login', userController.login.bind(userController));
 
