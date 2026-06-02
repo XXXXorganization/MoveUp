@@ -26,8 +26,7 @@ import java.net.URL;
 
 public class mine_edit extends AppCompatActivity {
 
-    // 🌟 新增这一行：设为 public static 方便测试代码动态修改
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://192.168.25.47:3000";
 
     private EditText etUsername;
     private EditText etEmail;
@@ -41,6 +40,7 @@ public class mine_edit extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_mine_edit);
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -49,7 +49,6 @@ public class mine_edit extends AppCompatActivity {
 
         mainHandler = new Handler(Looper.getMainLooper());
 
-        // 绑定视图
         etUsername = findViewById(R.id.et_edit_username);
         etEmail = findViewById(R.id.et_edit_email);
         etPhone = findViewById(R.id.et_edit_phone);
@@ -57,29 +56,27 @@ public class mine_edit extends AppCompatActivity {
         Button btnUpdate = findViewById(R.id.btnUpdateProfile);
         ImageButton btnBack = findViewById(R.id.btnBack);
 
-        // 获取当前账号ID (手机号)
         SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
         currentUserId = prefs.getString("user_phone", "13800138000");
 
-        // 返回按钮逻辑
         btnBack.setOnClickListener(v -> finish());
 
-        // 获取并填充数据
         fetchProfileData();
 
-        // 点击更新按钮
         btnUpdate.setOnClickListener(v -> updateProfileData());
     }
 
-    /**
-     * 发送 GET 请求获取当前用户的资料
-     */
+    // ------------------- fetchProfileData -------------------
     private void fetchProfileData() {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/user/profile";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                // 🌟 修改点 1：使用 BASE_URL 拼接请求地址
-                URL url = new URL(BASE_URL + "/v1/user/profile");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -89,7 +86,8 @@ public class mine_edit extends AppCompatActivity {
                     connection.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -98,13 +96,13 @@ public class mine_edit extends AppCompatActivity {
 
                     JSONObject resp = new JSONObject(sb.toString());
                     if (resp.optInt("code") == 200) {
+                        success = true;
                         JSONObject data = resp.getJSONObject("data");
                         final String username = data.optString("username", "");
                         final String email = data.optString("email", "");
                         final String phone = data.optString("phone", "");
                         final String password = data.optString("password", "");
 
-                        // 切回主线程更新 UI
                         mainHandler.post(() -> {
                             etUsername.setText(username);
                             etEmail.setText(email);
@@ -115,16 +113,16 @@ public class mine_edit extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "获取个人资料异常", e);
+                success = false;
                 mainHandler.post(() -> Toast.makeText(mine_edit.this, "无法拉取个人资料", Toast.LENGTH_SHORT).show());
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
     }
 
-    /**
-     * 发送 PUT 请求更新用户资料
-     */
+    // ------------------- updateProfileData -------------------
     private void updateProfileData() {
         final String newUsername = etUsername.getText().toString().trim();
         final String newEmail = etEmail.getText().toString().trim();
@@ -137,9 +135,13 @@ public class mine_edit extends AppCompatActivity {
 
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/user/profile";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                // 🌟 修改点 2：使用 BASE_URL 拼接请求地址
-                URL url = new URL(BASE_URL + "/v1/user/profile");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("PUT");
                 connection.setDoOutput(true);
@@ -150,7 +152,6 @@ public class mine_edit extends AppCompatActivity {
                     connection.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                // 构造更新数据
                 JSONObject jsonBody = new JSONObject();
                 jsonBody.put("username", newUsername);
                 jsonBody.put("email", newEmail);
@@ -161,23 +162,24 @@ public class mine_edit extends AppCompatActivity {
                 os.flush();
                 os.close();
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     mainHandler.post(() -> {
-                        // Toast 打印出上传的具体数据
                         String toastMsg = String.format("资料更新成功！\n新昵称: %s\n新邮箱: %s\n新密码: %s",
                                 newUsername, newEmail, newPassword);
                         Toast.makeText(mine_edit.this, toastMsg, Toast.LENGTH_LONG).show();
-
-                        finish(); // 更新成功后自动关闭页面，返回上一页
+                        finish();
                     });
                 } else {
                     mainHandler.post(() -> Toast.makeText(mine_edit.this, "更新失败，请重试", Toast.LENGTH_SHORT).show());
                 }
-
             } catch (Exception e) {
                 Log.e("API_TEST", "更新资料异常", e);
+                success = false;
                 mainHandler.post(() -> Toast.makeText(mine_edit.this, "网络连接异常", Toast.LENGTH_SHORT).show());
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();

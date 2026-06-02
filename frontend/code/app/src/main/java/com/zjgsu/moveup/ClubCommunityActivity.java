@@ -47,7 +47,7 @@ import java.util.List;
 
 public class ClubCommunityActivity extends AppCompatActivity {
 
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://192.168.25.47:3000";
 
     private String clubId;
     private String currentUserId;
@@ -108,30 +108,29 @@ public class ClubCommunityActivity extends AppCompatActivity {
     }
 
     private final ActivityResultLauncher<String> imagePickerLauncher =
-        registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
-            if (uri != null) {
-                try {
-                    InputStream is = getContentResolver().openInputStream(uri);
-                    Bitmap bitmap = BitmapFactory.decodeStream(is);
-                    is.close();
-                    if (bitmap != null) {
-                        // Resize to max 800px width to keep base64 reasonable
-                        int maxWidth = 800;
-                        if (bitmap.getWidth() > maxWidth) {
-                            int newHeight = bitmap.getHeight() * maxWidth / bitmap.getWidth();
-                            bitmap = Bitmap.createScaledBitmap(bitmap, maxWidth, newHeight, true);
+            registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+                if (uri != null) {
+                    try {
+                        InputStream is = getContentResolver().openInputStream(uri);
+                        Bitmap bitmap = BitmapFactory.decodeStream(is);
+                        is.close();
+                        if (bitmap != null) {
+                            int maxWidth = 800;
+                            if (bitmap.getWidth() > maxWidth) {
+                                int newHeight = bitmap.getHeight() * maxWidth / bitmap.getWidth();
+                                bitmap = Bitmap.createScaledBitmap(bitmap, maxWidth, newHeight, true);
+                            }
+                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos);
+                            String base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
+                            pendingImages.add("data:image/jpeg;base64," + base64);
+                            Toast.makeText(this, "Image added (" + (pendingImages.size()) + ")", Toast.LENGTH_SHORT).show();
                         }
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos);
-                        String base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
-                        pendingImages.add("data:image/jpeg;base64," + base64);
-                        Toast.makeText(this, "Image added (" + (pendingImages.size()) + ")", Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        Log.e("IMAGE", "Failed to load image", e);
                     }
-                } catch (Exception e) {
-                    Log.e("IMAGE", "Failed to load image", e);
                 }
-            }
-        });
+            });
 
     private void setupListeners() {
         btnBack.setOnClickListener(v -> finish());
@@ -165,11 +164,18 @@ public class ClubCommunityActivity extends AppCompatActivity {
         recyclerPosts.setAdapter(postAdapter);
     }
 
+    // ------------------- fetchClubDetails -------------------
     private void fetchClubDetails() {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            String urlStr = BASE_URL + "/v1/clubs/" + clubId;
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(5000);
                 SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
@@ -178,7 +184,9 @@ public class ClubCommunityActivity extends AppCompatActivity {
                     conn.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (conn.getResponseCode() == 200) {
+                int httpCode = conn.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -200,10 +208,10 @@ public class ClubCommunityActivity extends AppCompatActivity {
                             tvClubLocation.setText(location);
                             tvMemberCount.setText(memberCount + " members");
                             if (!imageUrl.isEmpty()) {
-                                Glide.with(this).load(imageUrl).centerCrop().into(ivClubAvatar);
+                                Glide.with(ClubCommunityActivity.this).load(imageUrl).centerCrop().into(ivClubAvatar);
                             }
                             if (!isMember) {
-                                Toast.makeText(this, "You have left this club", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(ClubCommunityActivity.this, "You have left this club", Toast.LENGTH_SHORT).show();
                                 finish();
                             }
                         });
@@ -211,15 +219,26 @@ public class ClubCommunityActivity extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "Fetch club details error", e);
+                success = false;
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
 
+    // ------------------- fetchPosts -------------------
     private void fetchPosts() {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            String urlStr = BASE_URL + "/v1/clubs/" + clubId + "/posts";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/posts");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
                 String token = prefs.getString("jwt", "");
@@ -227,7 +246,9 @@ public class ClubCommunityActivity extends AppCompatActivity {
                     conn.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (conn.getResponseCode() == 200) {
+                int httpCode = conn.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -265,7 +286,6 @@ public class ClubCommunityActivity extends AppCompatActivity {
                         if (authorObj != null) postAuthor = authorObj.optString("nickname", "Unknown");
                         int commentsCount = cmts != null ? cmts.length() : 0;
 
-                        // 解析图片列表
                         List<String> imageList = null;
                         JSONArray imgArr = p.optJSONArray("images");
                         if (imgArr != null && imgArr.length() > 0) {
@@ -275,7 +295,6 @@ public class ClubCommunityActivity extends AppCompatActivity {
                             }
                         }
 
-                        // 解析跑步记录摘要
                         String runDist = "", runDur = "", runPace = "";
                         boolean hasRun = false;
                         JSONObject runSum = p.optJSONObject("run_summary");
@@ -324,15 +343,26 @@ public class ClubCommunityActivity extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "Fetch posts error", e);
+                success = false;
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
 
+    // ------------------- createPost -------------------
     private void createPost(String content) {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            String urlStr = BASE_URL + "/v1/clubs/" + clubId + "/posts";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/posts");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 conn.setDoOutput(true);
@@ -357,26 +387,39 @@ public class ClubCommunityActivity extends AppCompatActivity {
                 os.write(body.toString().getBytes("UTF-8"));
                 os.close();
 
-                if (conn.getResponseCode() == 200) {
+                int httpCode = conn.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     mainHandler.post(() -> {
                         etNewPost.setText("");
                         pendingImages.clear();
-                        Toast.makeText(this, "Post shared!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(ClubCommunityActivity.this, "Post shared!", Toast.LENGTH_SHORT).show();
                         fetchPosts();
                     });
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "Create post error", e);
-                mainHandler.post(() -> Toast.makeText(this, "Failed to post", Toast.LENGTH_SHORT).show());
+                success = false;
+                mainHandler.post(() -> Toast.makeText(ClubCommunityActivity.this, "Failed to post", Toast.LENGTH_SHORT).show());
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
 
+    // ------------------- toggleExit -------------------
     private void toggleExit() {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            String urlStr = BASE_URL + "/v1/clubs/" + clubId + "/toggle";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/toggle");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setConnectTimeout(5000);
                 conn.setDoOutput(true);
@@ -393,11 +436,12 @@ public class ClubCommunityActivity extends AppCompatActivity {
                 os.write(body.toString().getBytes("UTF-8"));
                 os.close();
 
-                if (conn.getResponseCode() == 200) {
+                int httpCode = conn.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     mainHandler.post(() -> {
-                        Toast.makeText(this, "Left the club", Toast.LENGTH_SHORT).show();
-                        // Go back to club page
-                        Intent intent = new Intent(this, clubterm.class);
+                        Toast.makeText(ClubCommunityActivity.this, "Left the club", Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(ClubCommunityActivity.this, clubterm.class);
                         intent.putExtra("CLUB_ID", clubId);
                         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                         startActivity(intent);
@@ -405,7 +449,12 @@ public class ClubCommunityActivity extends AppCompatActivity {
                     });
                 }
             } catch (Exception e) {
-                mainHandler.post(() -> Toast.makeText(this, "Network Error", Toast.LENGTH_SHORT).show());
+                Log.e("API_TEST", "Toggle exit error", e);
+                success = false;
+                mainHandler.post(() -> Toast.makeText(ClubCommunityActivity.this, "Network Error", Toast.LENGTH_SHORT).show());
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }

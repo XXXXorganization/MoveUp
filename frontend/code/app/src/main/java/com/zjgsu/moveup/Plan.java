@@ -25,8 +25,7 @@ import java.net.URL;
 
 public class Plan extends AppCompatActivity {
 
-    // 🌟 新增：暴露 BASE_URL 供测试修改
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://192.168.25.47:3000";
 
     private DrawerLayout drawerLayout;
     private Handler mainHandler;
@@ -84,33 +83,34 @@ public class Plan extends AppCompatActivity {
             startActivity(new Intent(Plan.this, Main.class));
             finish();
         });
-
         if (menuHistory != null) menuHistory.setOnClickListener(v -> {
             startActivity(new Intent(Plan.this, History.class));
             finish();
         });
-
         if (menuPlan != null) menuPlan.setOnClickListener(v -> {
             drawerLayout.closeDrawers();
         });
-
         if (menuClub != null) menuClub.setOnClickListener(v -> {
             startActivity(new Intent(Plan.this, Find.class));
             finish();
         });
-
         if (menuProfile != null) menuProfile.setOnClickListener(v -> {
             startActivity(new Intent(Plan.this, Mine.class));
             finish();
         });
     }
 
+    // ------------------- fetchTotalDistance -------------------
     private void fetchTotalDistance() {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/plan/total_distance";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                // 🌟 修改点：使用 BASE_URL 动态拼接
-                URL url = new URL(BASE_URL + "/v1/plan/total_distance");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -120,7 +120,8 @@ public class Plan extends AppCompatActivity {
                     connection.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -129,19 +130,19 @@ public class Plan extends AppCompatActivity {
 
                     JSONObject resp = new JSONObject(sb.toString());
                     if (resp.optInt("code") == 200) {
+                        success = true;
                         JSONObject data = resp.getJSONObject("data");
                         String totalStr = data.optString("total_distance", "0");
-
                         mainHandler.post(() -> {
-                            if (tv42 != null) {
-                                tv42.setText(totalStr);
-                            }
+                            if (tv42 != null) tv42.setText(totalStr);
                         });
                     }
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "获取总距离失败", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();

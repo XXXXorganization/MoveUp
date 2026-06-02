@@ -30,8 +30,7 @@ import java.util.List;
 
 public class PostDetailActivity extends AppCompatActivity {
 
-    // 🌟 新增：暴露 BASE_URL 供测试修改
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://192.168.25.47:3000";
 
     private RecyclerView rvAllComments;
     private String postId;
@@ -57,12 +56,18 @@ public class PostDetailActivity extends AppCompatActivity {
         }
     }
 
+    // ------------------- fetchAllComments -------------------
     private void fetchAllComments() {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            String urlStr = BASE_URL + "/v1/posts/" + postId + "/comments";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                // 🌟 修改：使用动态拼接的 BASE_URL
-                URL url = new URL(BASE_URL + "/v1/posts/" + postId + "/comments");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(5000);
                 SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
@@ -71,7 +76,9 @@ public class PostDetailActivity extends AppCompatActivity {
                     conn.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (conn.getResponseCode() == 200) {
+                int httpCode = conn.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                     JSONObject res = new JSONObject(br.readLine());
                     JSONArray list = res.getJSONObject("data").getJSONArray("list");
@@ -94,13 +101,15 @@ public class PostDetailActivity extends AppCompatActivity {
                         ));
                     }
 
-                    mainHandler.post(() -> {
-                        rvAllComments.setAdapter(new AllCommentsAdapter(comments));
-                    });
+                    mainHandler.post(() -> rvAllComments.setAdapter(new AllCommentsAdapter(comments)));
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "Failed to load all comments", e);
+                success = false;
                 mainHandler.post(() -> Toast.makeText(PostDetailActivity.this, "Network Error", Toast.LENGTH_SHORT).show());
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
@@ -124,7 +133,6 @@ public class PostDetailActivity extends AppCompatActivity {
             ClubComment c = comments.get(position);
             holder.tvAuthor.setText(c.author);
             holder.tvTime.setText(c.time);
-
             String text = "";
             if (c.replyToId != null && !c.replyToId.isEmpty() && !c.replyToId.equals("null") &&
                     c.replyToName != null && !c.replyToName.isEmpty() && !c.replyToName.equals("null")) {
@@ -141,7 +149,6 @@ public class PostDetailActivity extends AppCompatActivity {
 
         static class CommentViewHolder extends RecyclerView.ViewHolder {
             TextView tvAuthor, tvTime, tvContent;
-
             CommentViewHolder(View itemView) {
                 super(itemView);
                 tvAuthor = itemView.findViewById(R.id.tvCommentAuthor);

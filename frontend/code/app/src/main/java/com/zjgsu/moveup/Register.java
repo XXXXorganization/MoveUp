@@ -31,8 +31,7 @@ import java.net.URL;
 
 public class Register extends AppCompatActivity {
 
-    // 🌟 新增这一行，设为 public static 方便测试代码动态修改
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://192.168.25.47:3000";
 
     private EditText etPhone;
     private EditText etUsername;
@@ -66,160 +65,138 @@ public class Register extends AppCompatActivity {
         ImageView ivEyePwd1 = findViewById(R.id.iv_eye_pwd1);
         ImageView ivEyeConfirm = findViewById(R.id.iv_eye_confirm_pwd1);
 
-        // 🌟 1. 设置主密码可视/隐藏逻辑
-        ivEyePwd1.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                isPwd1Visible = !isPwd1Visible;
-                if (isPwd1Visible) {
-                    etPassword.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
-                    ivEyePwd1.setColorFilter(Color.parseColor("#C7FB58"));
-                } else {
-                    etPassword.setTransformationMethod(PasswordTransformationMethod.getInstance());
-                    ivEyePwd1.setColorFilter(Color.parseColor("#888888"));
-                }
-                etPassword.setSelection(etPassword.getText().length());
+        ivEyePwd1.setOnClickListener(v -> {
+            isPwd1Visible = !isPwd1Visible;
+            if (isPwd1Visible) {
+                etPassword.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
+                ivEyePwd1.setColorFilter(Color.parseColor("#C7FB58"));
+            } else {
+                etPassword.setTransformationMethod(PasswordTransformationMethod.getInstance());
+                ivEyePwd1.setColorFilter(Color.parseColor("#888888"));
             }
+            etPassword.setSelection(etPassword.getText().length());
         });
 
-        // 🌟 2. 设置确认密码可视/隐藏逻辑
-        ivEyeConfirm.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                isConfirmPwdVisible = !isConfirmPwdVisible;
-                if (isConfirmPwdVisible) {
-                    etConfirmPwd.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
-                    ivEyeConfirm.setColorFilter(Color.parseColor("#C7FB58"));
-                } else {
-                    etConfirmPwd.setTransformationMethod(PasswordTransformationMethod.getInstance());
-                    ivEyeConfirm.setColorFilter(Color.parseColor("#888888"));
-                }
-                etConfirmPwd.setSelection(etConfirmPwd.getText().length());
+        ivEyeConfirm.setOnClickListener(v -> {
+            isConfirmPwdVisible = !isConfirmPwdVisible;
+            if (isConfirmPwdVisible) {
+                etConfirmPwd.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
+                ivEyeConfirm.setColorFilter(Color.parseColor("#C7FB58"));
+            } else {
+                etConfirmPwd.setTransformationMethod(PasswordTransformationMethod.getInstance());
+                ivEyeConfirm.setColorFilter(Color.parseColor("#888888"));
             }
+            etConfirmPwd.setSelection(etConfirmPwd.getText().length());
         });
 
         if (btnBack != null) {
-            btnBack.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Intent intent = new Intent(Register.this, Start.class);
-                    startActivity(intent);
-                    finish();
-                }
+            btnBack.setOnClickListener(v -> {
+                Intent intent = new Intent(Register.this, Start.class);
+                startActivity(intent);
+                finish();
             });
         }
 
-        registerBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String phone = etPhone.getText().toString().trim();
-                String username = etUsername.getText().toString().trim();
-                String password = etPassword.getText().toString().trim();
-                String confirmPwd = etConfirmPwd.getText().toString().trim();
+        registerBtn.setOnClickListener(v -> {
+            String phone = etPhone.getText().toString().trim();
+            String username = etUsername.getText().toString().trim();
+            String password = etPassword.getText().toString().trim();
+            String confirmPwd = etConfirmPwd.getText().toString().trim();
 
-                if (phone.isEmpty() || username.isEmpty() || password.isEmpty() || confirmPwd.isEmpty()) {
-                    Toast.makeText(Register.this, "请填写所有注册信息", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                if (!password.equals(confirmPwd)) {
-                    Toast.makeText(Register.this, "两次输入的密码不一致", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                doRegisterRequest(phone, username, password);
+            if (phone.isEmpty() || username.isEmpty() || password.isEmpty() || confirmPwd.isEmpty()) {
+                Toast.makeText(Register.this, "请填写所有注册信息", Toast.LENGTH_SHORT).show();
+                return;
             }
+
+            if (!password.equals(confirmPwd)) {
+                Toast.makeText(Register.this, "两次输入的密码不一致", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            doRegisterRequest(phone, username, password);
         });
     }
 
     private void doRegisterRequest(final String phone, final String username, final String password) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                HttpURLConnection connection = null;
-                try {
-                    // 🌟 修改点：将写死的地址改为使用 BASE_URL 拼接
-                    URL url = new URL(BASE_URL + "/v1/auth/register");
-                    connection = (HttpURLConnection) url.openConnection();
-                    connection.setRequestMethod("POST");
-                    connection.setConnectTimeout(5000);
-                    connection.setReadTimeout(5000);
-                    connection.setDoOutput(true);
-                    connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/auth/register";
+            boolean success = false;
 
-                    JSONObject jsonBody = new JSONObject();
-                    jsonBody.put("phone", phone);
-                    jsonBody.put("username", username);
-                    jsonBody.put("password", password);
+            MetricsCollector.recordRequestStart(urlStr);
 
-                    OutputStream os = connection.getOutputStream();
-                    os.write(jsonBody.toString().getBytes("UTF-8"));
-                    os.flush();
-                    os.close();
+            try {
+                URL url = new URL(urlStr);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("POST");
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
 
-                    int httpCode = connection.getResponseCode();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(
-                            httpCode >= 200 && httpCode < 300
-                                    ? connection.getInputStream()
-                                    : connection.getErrorStream()
-                    ));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line);
-                    }
-                    reader.close();
+                JSONObject jsonBody = new JSONObject();
+                jsonBody.put("phone", phone);
+                jsonBody.put("username", username);
+                jsonBody.put("password", password);
 
-                    boolean tempSuccess = false;
-                    String message = "注册失败，请稍后重试";
+                OutputStream os = connection.getOutputStream();
+                os.write(jsonBody.toString().getBytes("UTF-8"));
+                os.flush();
+                os.close();
 
-                    if (httpCode == 200) {
-                        try {
-                            JSONObject resp = new JSONObject(sb.toString());
-                            int apiCode = resp.optInt("code", -1);
-                            message = resp.optString("message", message);
-
-                            if (apiCode == 200) {
-                                tempSuccess = true;
-                            }
-                        } catch (Exception e) {
-                            Log.e("API_TEST", "JSON解析错误: " + e.getMessage());
-                        }
-                    }
-
-                    final boolean success = tempSuccess;
-                    final String toastMsg = message;
-
-                    mainHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(Register.this, toastMsg, Toast.LENGTH_SHORT).show();
-                            if (success) {
-                                // 🌟 3. 注册成功时，直接把刚才填的账号密码写进本地配置中
-                                // 这样跳转回 Login 页面时就自动填好了
-                                SharedPreferences localPrefs = getSharedPreferences("Local_History", MODE_PRIVATE);
-                                localPrefs.edit()
-                                        .putString("saved_phone", phone)
-                                        .putString("saved_password", password)
-                                        .apply();
-
-                                Intent intent = new Intent(Register.this, Login.class);
-                                startActivity(intent);
-                                finish();
-                            }
-                        }
-                    });
-
-                } catch (final Exception e) {
-                    mainHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(Register.this, "网络连接异常，请检查网络", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                } finally {
-                    if (connection != null) connection.disconnect();
+                int httpCode = connection.getResponseCode();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(
+                        httpCode >= 200 && httpCode < 300
+                                ? connection.getInputStream()
+                                : connection.getErrorStream()
+                ));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
                 }
+                reader.close();
+
+                String message = "注册失败，请稍后重试";
+
+                if (httpCode == 200) {
+                    try {
+                        JSONObject resp = new JSONObject(sb.toString());
+                        int apiCode = resp.optInt("code", -1);
+                        message = resp.optString("message", message);
+
+                        if (apiCode == 200) {
+                            success = true;
+                        }
+                    } catch (Exception e) {
+                        Log.e("API_TEST", "JSON解析错误: " + e.getMessage());
+                    }
+                }
+
+                final boolean finalSuccess = success;
+                final String toastMsg = message;
+
+                mainHandler.post(() -> {
+                    Toast.makeText(Register.this, toastMsg, Toast.LENGTH_SHORT).show();
+                    if (finalSuccess) {
+                        SharedPreferences localPrefs = getSharedPreferences("Local_History", MODE_PRIVATE);
+                        localPrefs.edit()
+                                .putString("saved_phone", phone)
+                                .putString("saved_password", password)
+                                .apply();
+
+                        Intent intent = new Intent(Register.this, Login.class);
+                        startActivity(intent);
+                        finish();
+                    }
+                });
+
+            } catch (Exception e) {
+                success = false;
+                mainHandler.post(() -> Toast.makeText(Register.this, "网络连接异常，请检查网络", Toast.LENGTH_SHORT).show());
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (connection != null) connection.disconnect();
             }
         }).start();
     }
