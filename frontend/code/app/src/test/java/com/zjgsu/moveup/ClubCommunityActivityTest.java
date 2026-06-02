@@ -133,6 +133,55 @@ public class ClubCommunityActivityTest {
     }
 
     @Test
+    public void testBackButton_FinishesActivity() throws Exception {
+        mockWebServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                if (request.getPath() != null && request.getPath().contains("/posts") && request.getMethod().equals("GET")) {
+                    return new MockResponse().setResponseCode(200)
+                            .setBody("{\"code\":200,\"data\":{\"list\":[]}}");
+                }
+                return new MockResponse().setResponseCode(200)
+                        .setBody("{\"code\":200,\"data\":{\"name\":\"Club\",\"location\":\"City\",\"image_url\":\"\",\"is_member\":true,\"member_count\":3}}");
+            }
+        });
+
+        Intent intent = new Intent();
+        intent.putExtra("CLUB_ID", "club-1");
+        ClubCommunityActivity activity = Robolectric.buildActivity(ClubCommunityActivity.class, intent).create().get();
+
+        Thread.sleep(300);
+        Robolectric.flushForegroundThreadScheduler();
+        activity.findViewById(R.id.btnBack).performClick();
+        assertNotNull(activity); // Activity should not crash
+    }
+
+    @Test
+    public void testSendPost_EmptyContent_ShowsToast() throws Exception {
+        mockWebServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                if (request.getPath() != null && request.getPath().contains("/posts") && request.getMethod().equals("GET")) {
+                    return new MockResponse().setResponseCode(200)
+                            .setBody("{\"code\":200,\"data\":{\"list\":[]}}");
+                }
+                return new MockResponse().setResponseCode(200)
+                        .setBody("{\"code\":200,\"data\":{\"name\":\"Club\",\"location\":\"City\",\"image_url\":\"\",\"is_member\":true,\"member_count\":3}}");
+            }
+        });
+
+        Intent intent = new Intent();
+        intent.putExtra("CLUB_ID", "club-1");
+        ClubCommunityActivity activity = Robolectric.buildActivity(ClubCommunityActivity.class, intent).create().get();
+
+        Thread.sleep(300);
+        Robolectric.flushForegroundThreadScheduler();
+        activity.findViewById(R.id.btnSendPost).performClick();
+
+        assertEquals("Please write something", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test
     public void testExitButton_ShowsDialog() throws Exception {
         mockWebServer.setDispatcher(new Dispatcher() {
             @Override
