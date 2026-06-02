@@ -76,7 +76,7 @@ public class HistoryTest {
         assertEquals(Plan.class.getName(), ShadowApplication.getInstance().getNextStartedActivity().getComponent().getClassName());
 
         activity.findViewById(R.id.menu_club).performClick();
-        assertEquals(clubterm.class.getName(), ShadowApplication.getInstance().getNextStartedActivity().getComponent().getClassName());
+        assertEquals(Find.class.getName(), ShadowApplication.getInstance().getNextStartedActivity().getComponent().getClassName());
 
         activity.findViewById(R.id.menu_profile).performClick();
         assertEquals(Mine.class.getName(), ShadowApplication.getInstance().getNextStartedActivity().getComponent().getClassName());
@@ -128,7 +128,8 @@ public class HistoryTest {
     // ==========================================
     @Test
     public void testShareFlow_Success_FullSequence() throws Exception {
-        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[{\"id\":\"run1\"}]}}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[]}}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[{\"id\":\"run1\",\"date\":\"today\",\"title\":\"Run\",\"duration_str\":\"30:00.00\",\"pace\":\"6'00\\\"\",\"distance\":\"5.00 Km\"}]}}"));
         History activity = Robolectric.buildActivity(History.class).create().resume().get();
 
         RecyclerView recyclerView = activity.findViewById(R.id.recyclerHistory);
@@ -181,7 +182,8 @@ public class HistoryTest {
     // ==========================================
     @Test
     public void testShareFlow_EmptyClubs() throws Exception {
-        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[{\"id\":\"run1\"}]}}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[]}}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[{\"id\":\"run1\",\"date\":\"today\",\"title\":\"Run\",\"duration_str\":\"30:00.00\",\"pace\":\"6'00\\\"\",\"distance\":\"5.00 Km\"}]}}"));
         History activity = Robolectric.buildActivity(History.class).create().resume().get();
 
         RecyclerView recyclerView = activity.findViewById(R.id.recyclerHistory);
@@ -212,7 +214,8 @@ public class HistoryTest {
     // ==========================================
     @Test
     public void testShareFlow_NetworkError_OnFetchClubs() throws Exception {
-        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[{\"id\":\"run1\"}]}}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[]}}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[{\"id\":\"run1\",\"date\":\"today\",\"title\":\"Run\",\"duration_str\":\"30:00.00\",\"pace\":\"6'00\\\"\",\"distance\":\"5.00 Km\"}]}}"));
         History activity = Robolectric.buildActivity(History.class).create().resume().get();
 
         RecyclerView recyclerView = activity.findViewById(R.id.recyclerHistory);
@@ -245,7 +248,8 @@ public class HistoryTest {
     // ==========================================
     @Test
     public void testShareFlow_NetworkError_OnSubmitShare() throws Exception {
-        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[{\"id\":\"run1\"}]}}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[]}}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"stats\":{},\"list\":[{\"id\":\"run1\",\"date\":\"today\",\"title\":\"Run\",\"duration_str\":\"30:00.00\",\"pace\":\"6'00\\\"\",\"distance\":\"5.00 Km\"}]}}"));
         History activity = Robolectric.buildActivity(History.class).create().resume().get();
 
         RecyclerView recyclerView = activity.findViewById(R.id.recyclerHistory);

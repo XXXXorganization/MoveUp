@@ -98,7 +98,7 @@ public class MainTest {
         assertEquals(Plan.class.getName(), ShadowApplication.getInstance().getNextStartedActivity().getComponent().getClassName());
 
         activity.findViewById(R.id.menu_club).performClick();
-        assertEquals(clubterm.class.getName(), ShadowApplication.getInstance().getNextStartedActivity().getComponent().getClassName());
+        assertEquals(Find.class.getName(), ShadowApplication.getInstance().getNextStartedActivity().getComponent().getClassName());
 
         activity.findViewById(R.id.menu_profile).performClick();
         assertEquals(Mine.class.getName(), ShadowApplication.getInstance().getNextStartedActivity().getComponent().getClassName());

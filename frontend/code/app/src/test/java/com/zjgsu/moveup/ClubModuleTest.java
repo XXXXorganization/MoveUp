@@ -84,11 +84,11 @@ public class ClubModuleTest {
             public MockResponse dispatch(RecordedRequest request) {
                 String path = request.getPath();
                 if (path != null && path.contains("/toggle")) {
-                    return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"is_joined\":true}}");
+                    return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"joined\":true}}");
                 } else if (path != null && path.contains("/posts")) {
                     return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"list\":[]}}");
                 } else {
-                    return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"name\":\"跑团A\",\"location\":\"校区\",\"is_joined\":false}}");
+                    return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"name\":\"跑团A\",\"location\":\"校区\",\"is_member\":false}}");
                 }
             }
         });
@@ -112,16 +112,16 @@ public class ClubModuleTest {
         assertNotNull(positiveButton);
         positiveButton.performClick();
 
-        // 🌟 智能轮询等待：监控后端 toggle 接口是否成功把文字改成了 "Exit"
+        // 🌟 智能轮询等待：监控后端 toggle 接口是否成功把文字改成了 "Enter Community"
         for (int i = 0; i < 20; i++) {
             Robolectric.flushForegroundThreadScheduler();
-            if ("Exit".equals(btnJoin.getText().toString())) break;
+            if ("Enter Community".equals(btnJoin.getText().toString())) break;
             Thread.sleep(100);
         }
 
         // 最终断言判定
-        assertEquals("Exit", btnJoin.getText().toString());
-        assertEquals("Successfully Joined!", ShadowToast.getTextOfLatestToast());
+        assertEquals("Enter Community", btnJoin.getText().toString());
+        assertTrue(ShadowToast.getTextOfLatestToast().contains("Welcome"));
     }
 
     // ==========================================
@@ -136,15 +136,16 @@ public class ClubModuleTest {
                 String path = request.getPath();
                 if (path != null && path.contains("/posts")) {
                     try {
+                        JSONObject commentAuthor = new JSONObject().put("nickname", "小明");
                         JSONObject comment = new JSONObject()
-                                .put("id", "c1").put("author", "小明").put("content", "给力")
-                                .put("time", "12:00").put("reply_to_id", "u1").put("reply_to_name", "小红");
+                                .put("id", "c1").put("author", commentAuthor).put("content", "给力")
+                                .put("created_at", "12:00").put("reply_to_id", "u1");
 
+                        JSONObject authorObj = new JSONObject().put("nickname", "队长");
                         JSONObject post = new JSONObject()
-                                .put("id", "p1").put("author", "队长").put("timeText", "1小时前")
-                                .put("lateTitle", "打卡").put("postBadgeText", "优秀").put("subLine", "晨跑")
-                                .put("subDetail", "5km").put("is_liked", true).put("like_count", 99)
-                                .put("total_comments", 1).put("comments", new JSONArray().put(comment));
+                                .put("id", "p1").put("author", authorObj).put("created_at", "1小时前")
+                                .put("content", "打卡").put("is_liked", true).put("like_count", 99)
+                                .put("comments", new JSONArray().put(comment));
 
                         return new MockResponse().setResponseCode(200).setBody("{\"code\":200,\"data\":{\"list\":[" + post.toString() + "]}}");
                     } catch (Exception e) {
