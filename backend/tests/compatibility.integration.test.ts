@@ -50,6 +50,12 @@ describe('Compatibility Routes Integration Tests', () => {
       expect(detailsRes.body.data.list[0].is_completed).toBe(true);
     });
 
+    it('PUT /v1/plan/toggle_complete - returns 404 for out of range index', async () => {
+      const res = await request(app).put('/v1/plan/toggle_complete').set('Authorization', `Bearer ${authToken}`)
+        .send({ day: 'SUNDAY', index: 999 });
+      expect(res.status).toBe(404);
+    });
+
     it('DELETE /v1/plan/details/delete - delete plan item', async () => {
       await request(app).post('/v1/plan/details').set('Authorization', `Bearer ${authToken}`)
         .send({ day: 'WEDNESDAY', start_time: '09:00', distance: '2' });

@@ -126,5 +126,12 @@ describe('User Module Tests', () => {
         .send({ phone: '13600000001' });
       expect(res.status).toBe(400);
     });
+
+    it('should handle registration error from service', async () => {
+      userService.registerWithPassword = jest.fn().mockRejectedValue(new Error('DB Error'));
+      const res = await request(app).post('/v1/auth/register')
+        .send({ phone: '13600000002', username: 'test', password: '123456' });
+      expect(res.status).toBe(500);
+    });
   });
 });
