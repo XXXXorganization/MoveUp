@@ -108,6 +108,23 @@ describe('User Module Tests', () => {
     });
   });
 
-  // Add more tests for getUserProfile and updateUserProfile
-  // Note: These require authentication middleware mocking
+  describe('POST /v1/auth/register - Password Register', () => {
+    it('should register new user with password', async () => {
+      userService.registerWithPassword = jest.fn().mockResolvedValue({
+        token: 'jwt-token', expires_in: 7200,
+        user: { id: 'new-id', nickname: 'newuser', avatar: null },
+      });
+
+      const res = await request(app).post('/v1/auth/register')
+        .send({ phone: '13600000001', username: 'newuser', password: '123456' });
+      expect(res.status).toBe(200);
+      expect(res.body.data.token).toBe('jwt-token');
+    });
+
+    it('should reject missing fields', async () => {
+      const res = await request(app).post('/v1/auth/register')
+        .send({ phone: '13600000001' });
+      expect(res.status).toBe(400);
+    });
+  });
 });
