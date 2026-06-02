@@ -85,7 +85,16 @@ public class clubterm extends AppCompatActivity {
         currentUserId = prefs.getString("user_phone", "13800138000");
 
         fetchClubDetails();
-        btnJoin.setOnClickListener(v -> showConfirmDialog());
+        btnJoin.setOnClickListener(v -> {
+            if (isJoined) {
+                // 已加入 → 进入社区
+                Intent intent = new Intent(clubterm.this, ClubCommunityActivity.class);
+                intent.putExtra("CLUB_ID", clubId);
+                startActivity(intent);
+            } else {
+                showConfirmDialog();
+            }
+        });
 
         // 为按钮添加展开侧滑菜单的点击事件
         findViewById(R.id.btnMenu).setOnClickListener(v -> {
@@ -129,11 +138,10 @@ public class clubterm extends AppCompatActivity {
             finish();
         });
 
-        // Club → 当前已在 Club 页面，直接关闭侧滑菜单即可
+        // Club → 跳转到社团发现页
         if (menuClub != null) menuClub.setOnClickListener(v -> {
-            if (drawerLayout != null) {
-                drawerLayout.closeDrawers();
-            }
+            startActivity(new Intent(clubterm.this, Find.class));
+            finish();
         });
 
         // Profile → Mine
@@ -146,9 +154,14 @@ public class clubterm extends AppCompatActivity {
     private void fetchClubPosts() {
         new Thread(() -> {
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/posts?user_id=" + currentUserId);
+                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/posts");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (conn.getResponseCode() == 200) {
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
@@ -159,38 +172,84 @@ public class clubterm extends AppCompatActivity {
                     for (int i = 0; i < list.length(); i++) {
                         JSONObject p = list.getJSONObject(i);
 
-                        // 解析 comments 里的 reply_to_name
+                        // 解析 comments
                         JSONArray cmts = p.optJSONArray("comments");
                         List<ClubComment> cList = new ArrayList<>();
                         if(cmts != null) {
                             for(int j=0; j<cmts.length(); j++){
                                 JSONObject c = cmts.getJSONObject(j);
+                                String commentAuthor = "Unknown";
+                                JSONObject commentAuthorObj = c.optJSONObject("author");
+                                if (commentAuthorObj != null) {
+                                    commentAuthor = commentAuthorObj.optString("nickname", "Unknown");
+                                }
                                 cList.add(new ClubComment(
-                                        c.getString("id"),
-                                        c.getString("author"),
-                                        c.getString("content"),
-                                        c.getString("time"),
+                                        c.optString("id", ""),
+                                        commentAuthor,
+                                        c.optString("content", ""),
+                                        c.optString("created_at", ""),
                                         c.optString("reply_to_id", null),
-                                        c.optString("reply_to_name", null) // 提取被回复人名字
+                                        "" // reply_to_name not available
                                 ));
                             }
                         }
 
-                        postList.add(new ClubTermPost(
-                                p.getString("id"),
-                                p.getString("author"),
-                                p.getString("timeText"),
-                                p.getString("lateTitle"),
+                        String postAuthor = "Unknown";
+                        JSONObject authorObj = p.optJSONObject("author");
+                        if (authorObj != null) {
+                            postAuthor = authorObj.optString("nickname", "Unknown");
+                        }
+                        int commentsCount = cmts != null ? cmts.length() : 0;
+
+                        // 解析图片列表
+                        List<String> imageList = null;
+                        JSONArray imgArr = p.optJSONArray("images");
+                        if (imgArr != null && imgArr.length() > 0) {
+                            imageList = new ArrayList<>();
+                            for (int k = 0; k < imgArr.length(); k++) {
+                                imageList.add(imgArr.optString(k, ""));
+                            }
+                        }
+
+                        // 解析跑步记录摘要
+                        String runDist = "", runDur = "", runPace = "";
+                        boolean hasRun = false;
+                        JSONObject runSum = p.optJSONObject("run_summary");
+                        if (runSum != null) {
+                            double dist = runSum.optDouble("distance", 0);
+                            int dur = runSum.optInt("duration", 0);
+                            String pace = runSum.optString("pace", "0'00\"");
+                            if (dist > 0 || dur > 0) {
+                                hasRun = true;
+                                runDist = String.format("%.2f Km", dist);
+                                int mins = dur / 60;
+                                int secs = dur % 60;
+                                runDur = String.format("%d'%02d\"", mins, secs);
+                                runPace = pace;
+                            }
+                        }
+
+                        ClubTermPost ctp = new ClubTermPost(
+                                p.optString("id", ""),
+                                postAuthor,
+                                p.optString("created_at", ""),
+                                p.optString("content", "No title"),
                                 R.drawable.term1,
-                                p.getString("postBadgeText"),
-                                p.getString("subLine"),
-                                p.getString("subDetail"),
+                                "",
+                                hasRun ? runDist : "",
+                                hasRun ? (runDur + " • " + runPace) : "",
                                 R.drawable.ic_avatar_placeholder,
-                                p.getBoolean("is_liked"),
-                                p.getInt("like_count"),
-                                p.getInt("total_comments"),
-                                cList
-                        ));
+                                p.optBoolean("is_liked", false),
+                                p.optInt("like_count", 0),
+                                commentsCount,
+                                cList,
+                                imageList
+                        );
+                        ctp.hasRunData = hasRun;
+                        ctp.runDistance = runDist;
+                        ctp.runDuration = runDur;
+                        ctp.runPace = runPace;
+                        postList.add(ctp);
                     }
 
                     mainHandler.post(() -> {
@@ -220,10 +279,15 @@ public class clubterm extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "?user_id=" + currentUserId);
+                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (connection.getResponseCode() == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
@@ -237,7 +301,7 @@ public class clubterm extends AppCompatActivity {
                         JSONObject data = resp.getJSONObject("data");
                         final String name = data.optString("name");
                         final String location = data.optString("location");
-                        final boolean joined = data.optBoolean("is_joined", false);
+                        final boolean joined = data.optBoolean("is_member", false);
                         // 🌟 解析获取后端返回的图片 URL
                         final String imageUrl = data.optString("image_url", "");
 
@@ -276,9 +340,13 @@ public class clubterm extends AppCompatActivity {
                 connection.setConnectTimeout(5000);
                 connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 JSONObject body = new JSONObject();
-                body.put("user_id", currentUserId);
                 body.put("timestamp", System.currentTimeMillis());
 
                 OutputStream os = connection.getOutputStream();
@@ -296,11 +364,18 @@ public class clubterm extends AppCompatActivity {
                     JSONObject resp = new JSONObject(sb.toString());
                     if (resp.optInt("code") == 200) {
                         JSONObject data = resp.getJSONObject("data");
-                        final boolean currentStatus = data.optBoolean("is_joined");
+                        final boolean currentStatus = data.optBoolean("joined");
 
                         mainHandler.post(() -> {
                             updateButtonUI(currentStatus);
-                            Toast.makeText(this, currentStatus ? "Successfully Joined!" : "Successfully Exited!", Toast.LENGTH_SHORT).show();
+                            if (currentStatus) {
+                                // 加入成功 → 跳转到社区动态页面
+                                Intent intent = new Intent(clubterm.this, ClubCommunityActivity.class);
+                                intent.putExtra("CLUB_ID", clubId);
+                                startActivity(intent);
+                            } else {
+                                Toast.makeText(this, "Successfully Exited!", Toast.LENGTH_SHORT).show();
+                            }
                         });
                     }
                 }
@@ -315,9 +390,9 @@ public class clubterm extends AppCompatActivity {
     private void updateButtonUI(boolean status) {
         isJoined = status;
         if (isJoined) {
-            btnJoin.setText("Exit");
-            btnJoin.setBackgroundColor(Color.parseColor("#FF6B6B"));
-            btnJoin.setTextColor(Color.WHITE);
+            btnJoin.setText("Enter Community");
+            btnJoin.setBackgroundColor(Color.parseColor("#C7FB58"));
+            btnJoin.setTextColor(Color.parseColor("#1E1F22"));
         } else {
             btnJoin.setText("Join");
             btnJoin.setBackgroundColor(Color.parseColor("#C7FB58"));
