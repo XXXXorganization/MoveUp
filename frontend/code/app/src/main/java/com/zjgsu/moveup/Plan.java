@@ -95,7 +95,7 @@ public class Plan extends AppCompatActivity {
         });
 
         if (menuClub != null) menuClub.setOnClickListener(v -> {
-            startActivity(new Intent(Plan.this, clubterm.class));
+            startActivity(new Intent(Plan.this, Find.class));
             finish();
         });
 
@@ -110,10 +110,15 @@ public class Plan extends AppCompatActivity {
             HttpURLConnection connection = null;
             try {
                 // 🌟 修改点：使用 BASE_URL 动态拼接
-                URL url = new URL(BASE_URL + "/v1/plan/total_distance?user_id=" + currentUserId);
+                URL url = new URL(BASE_URL + "/v1/plan/total_distance");
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (connection.getResponseCode() == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));

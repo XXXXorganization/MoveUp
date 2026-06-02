@@ -109,7 +109,7 @@ public class Mine extends AppCompatActivity {
         }
         if (findViewById(R.id.menu_club) != null) {
             findViewById(R.id.menu_club).setOnClickListener(v -> {
-                startActivity(new Intent(this, clubterm.class));
+                startActivity(new Intent(this, Find.class));
                 finish();
             });
         }
@@ -131,10 +131,15 @@ public class Mine extends AppCompatActivity {
             HttpURLConnection connection = null;
             try {
                 // 🌟 修改点：使用 BASE_URL 拼接请求地址
-                URL url = new URL(BASE_URL + "/v1/user/profile?user_id=" + currentUserId);
+                URL url = new URL(BASE_URL + "/v1/user/profile");
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (connection.getResponseCode() == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));

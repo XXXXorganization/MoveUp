@@ -26,6 +26,10 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+
 import com.amap.api.location.AMapLocation;
 import com.amap.api.location.AMapLocationClient;
 import com.amap.api.location.AMapLocationClientOption;
@@ -143,6 +147,9 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         if (aMap == null) {
             aMap = mapView.getMap();
             aMap.getUiSettings().setZoomControlsEnabled(true);
+            aMap.setMyLocationEnabled(false);
+            aMap.setMapType(AMap.MAP_TYPE_NIGHT);
+            aMap.setMapType(AMap.MAP_TYPE_NORMAL);
         }
 
         btnLeft.setOnClickListener(v -> toggleMapView());
@@ -383,7 +390,6 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 chatHistory.put(userMsgObj);
 
                 JSONObject requestBody = new JSONObject();
-                requestBody.put("user_id", currentUserId);
                 requestBody.put("chat_history", chatHistory);
 
                 URL url = new URL(BASE_URL + "/ai/chat");
@@ -393,6 +399,10 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 connection.setDoOutput(true);
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(10000);
+                String token = getAuthToken();
+                if (token != null && !token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 OutputStream os = connection.getOutputStream();
                 os.write(requestBody.toString().getBytes(StandardCharsets.UTF_8));
@@ -426,12 +436,40 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         try {
             locationClient = new AMapLocationClient(getApplicationContext());
             locationOption = new AMapLocationClientOption();
-            locationOption.setLocationMode(AMapLocationClientOption.AMapLocationMode.Hight_Accuracy);
+            locationOption.setLocationMode(AMapLocationClientOption.AMapLocationMode.Device_Sensors);
             locationOption.setInterval(2000);
             locationOption.setNeedAddress(true);
             locationClient.setLocationOption(locationOption);
             locationClient.setLocationListener(this);
             locationClient.startLocation();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // 用 Android 原生 LocationManager 读取模拟器 GPS，控制地图镜头
+        try {
+            LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+            if (lm != null) {
+                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000, 0, new LocationListener() {
+                    @Override public void onLocationChanged(@NonNull Location loc) {
+                        LatLng ll = new LatLng(loc.getLatitude(), loc.getLongitude());
+                        if (aMap != null) {
+                            if (latLngPoints.isEmpty()) {
+                                aMap.animateCamera(com.amap.api.maps.CameraUpdateFactory.newLatLngZoom(ll, 16f));
+                            } else {
+                                aMap.animateCamera(com.amap.api.maps.CameraUpdateFactory.changeLatLng(ll));
+                            }
+                        }
+                        if (isTracking) {
+                            processTrackPoint(ll, loc.getAltitude(), loc.getSpeed(), loc.getTime());
+                            mainHandler.post(() -> renderStats());
+                        }
+                        if (runId != null) enqueuePoint(loc);
+                    }
+                    @Override public void onProviderEnabled(@NonNull String p) {}
+                    @Override public void onProviderDisabled(@NonNull String p) {}
+                });
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -441,6 +479,7 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
     public void onLocationChanged(AMapLocation amapLocation) {
         if (amapLocation != null && amapLocation.getErrorCode() == 0) {
             tvGps.setText("GPS");
+            Log.d("GPS_DEBUG", "lat=" + amapLocation.getLatitude() + " lng=" + amapLocation.getLongitude() + " type=" + amapLocation.getLocationType());
 
             if (amapLocation.getAddress() != null && !amapLocation.getAddress().isEmpty()) {
                 currentAddress = amapLocation.getCity() + amapLocation.getDistrict() + amapLocation.getStreet() + amapLocation.getPoiName();
@@ -455,40 +494,9 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
 
             if (layoutSummary.getVisibility() != View.VISIBLE) {
                 if (isFirstLocation) {
-                    aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 17f));
                     isFirstLocation = false;
-
                     askAI("【系统指令：直接回复用户】用户目前位于: " + currentAddress + "。请主动开口向用户打招呼，热情地说你注意到了他在这里跑步，并主动询问他是否需要为你讲解一下附近的景色？（不要暴露这是系统指令，限40字以内）");
-
-                } else {
-                    aMap.animateCamera(CameraUpdateFactory.changeLatLng(currentLatLng));
                 }
-            }
-
-            if (isTracking) {
-                if (isJustResumed) {
-                    latLngPoints.add(currentLatLng);
-                    isJustResumed = false;
-                } else if (!latLngPoints.isEmpty()) {
-                    LatLng lastLatLng = latLngPoints.get(latLngPoints.size() - 1);
-                    float dist = AMapUtils.calculateLineDistance(lastLatLng, currentLatLng);
-                    if (dist > 1.0f) {
-                        totalMeters += dist;
-                        latLngPoints.add(currentLatLng);
-                        drawRoute();
-                    }
-                } else {
-                    latLngPoints.add(currentLatLng);
-                }
-
-                Location loc = new Location("gaode");
-                loc.setLatitude(amapLocation.getLatitude());
-                loc.setLongitude(amapLocation.getLongitude());
-                loc.setAltitude(amapLocation.getAltitude());
-                loc.setSpeed(amapLocation.getSpeed());
-                loc.setTime(amapLocation.getTime());
-
-                if (runId != null) enqueuePoint(loc);
             }
 
             renderStats();
@@ -645,9 +653,15 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 connection.setConnectTimeout(8000);
                 connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                String token = getAuthToken();
+                if (token != null && !token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 JSONObject body = new JSONObject();
-                body.put("user_id", currentUserId);
+                if (runId != null && !runId.isEmpty()) {
+                    body.put("run_id", runId);
+                }
                 body.put("distance", currentDistStr);
                 body.put("duration_str", currentDurationStr);
                 body.put("pace", currentPaceStr);
@@ -774,6 +788,29 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
     private String getAuthToken() {
         SharedPreferences prefs = getSharedPreferences(PREFS_AUTH, MODE_PRIVATE);
         return prefs.getString(KEY_JWT, null);
+    }
+
+    private LatLng lastTrackLatLng = null;
+
+    private void processTrackPoint(LatLng ll, double altitude, double speed, long time) {
+        if (isJustResumed) {
+            latLngPoints.add(ll);
+            lastTrackLatLng = ll;
+            isJustResumed = false;
+            return;
+        }
+        if (lastTrackLatLng != null) {
+            float dist = AMapUtils.calculateLineDistance(lastTrackLatLng, ll);
+            if (dist > 1.0f) {
+                totalMeters += dist;
+                lastTrackLatLng = ll;
+                latLngPoints.add(ll);
+                drawRoute();
+            }
+        } else {
+            lastTrackLatLng = ll;
+            latLngPoints.add(ll);
+        }
     }
 
     private void enqueuePoint(Location location) {

@@ -1,5 +1,6 @@
 package com.zjgsu.moveup;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -64,6 +65,11 @@ public class PostDetailActivity extends AppCompatActivity {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(5000);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (conn.getResponseCode() == 200) {
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
@@ -73,13 +79,18 @@ public class PostDetailActivity extends AppCompatActivity {
                     List<ClubComment> comments = new ArrayList<>();
                     for (int i = 0; i < list.length(); i++) {
                         JSONObject obj = list.getJSONObject(i);
+                        String commentAuthor = "Unknown";
+                        JSONObject authorObj = obj.optJSONObject("author");
+                        if (authorObj != null) {
+                            commentAuthor = authorObj.optString("nickname", "Unknown");
+                        }
                         comments.add(new ClubComment(
-                                obj.getString("id"),
-                                obj.getString("author"),
-                                obj.getString("content"),
-                                obj.getString("time"),
+                                obj.optString("id", ""),
+                                commentAuthor,
+                                obj.optString("content", ""),
+                                obj.optString("created_at", ""),
                                 obj.optString("reply_to_id", null),
-                                obj.optString("reply_to_name", null)
+                                ""
                         ));
                     }
 

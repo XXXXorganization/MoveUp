@@ -97,6 +97,12 @@ public class History extends AppCompatActivity {
         fetchHistoryData();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        fetchHistoryData();
+    }
+
     private void setupMenuClicks() {
         TextView menuHome = findViewById(R.id.menu_home);
         TextView menuHistory = findViewById(R.id.menu_history);
@@ -119,7 +125,7 @@ public class History extends AppCompatActivity {
         });
 
         if (menuClub != null) menuClub.setOnClickListener(v -> {
-            startActivity(new Intent(History.this, clubterm.class));
+            startActivity(new Intent(History.this, Find.class));
             finish();
         });
 
@@ -133,11 +139,16 @@ public class History extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL(BASE_URL + "/v1/runs?user_id=" + currentUserId);
+                URL url = new URL(BASE_URL + "/v1/runs");
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
                 connection.setReadTimeout(5000);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 int httpCode = connection.getResponseCode();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(
@@ -280,9 +291,14 @@ public class History extends AppCompatActivity {
     private void fetchMyClubsAndShowDialog(HistoryRun run) {
         new Thread(() -> {
             try {
-                URL url = new URL(BASE_URL + "/v1/user/clubs?user_id=" + currentUserId);
+                URL url = new URL(BASE_URL + "/v1/user/clubs");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (conn.getResponseCode() == 200) {
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
@@ -360,9 +376,13 @@ public class History extends AppCompatActivity {
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setDoOutput(true);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 JSONObject body = new JSONObject();
-                body.put("user_id", currentUserId);
                 body.put("run_id", run.id);
                 body.put("content", content);
                 body.put("timestamp", System.currentTimeMillis());
