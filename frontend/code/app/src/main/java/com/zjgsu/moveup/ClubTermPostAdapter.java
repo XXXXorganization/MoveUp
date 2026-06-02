@@ -2,9 +2,12 @@ package com.zjgsu.moveup;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 import android.text.Html;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -19,6 +22,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.bumptech.glide.Glide;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -63,6 +68,35 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
         holder.tvLateTitle.setText(post.lateTitle);
         holder.tvSubLine.setText(post.subLine);
         holder.tvSubDetail.setText(post.subDetail);
+
+        // 渲染图片
+        if (post.images != null && !post.images.isEmpty()) {
+            holder.postImageWrap.setVisibility(View.VISIBLE);
+            String firstImage = post.images.get(0);
+            if (firstImage.startsWith("data:")) {
+                // base64 image
+                try {
+                    byte[] decodedBytes = android.util.Base64.decode(
+                        firstImage.substring(firstImage.indexOf(",") + 1),
+                        android.util.Base64.DEFAULT);
+                    holder.ivPostImage.setImageBitmap(
+                        android.graphics.BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length));
+                } catch (Exception e) {
+                    holder.ivPostImage.setImageResource(R.drawable.term1);
+                }
+            } else {
+                Glide.with(holder.itemView.getContext())
+                    .load(firstImage)
+                    .centerCrop()
+                    .placeholder(R.drawable.term1)
+                    .error(R.drawable.term1)
+                    .into(holder.ivPostImage);
+            }
+            holder.tvPostBadge.setText(post.images.size() + " pics");
+            holder.tvPostBadge.setVisibility(View.VISIBLE);
+        } else {
+            holder.postImageWrap.setVisibility(View.GONE);
+        }
 
         // 渲染点赞状态
         holder.tvLikeCount.setText(post.likeCount + " likes");
@@ -149,9 +183,15 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setDoOutput(true);
+                if (context != null) {
+                    SharedPreferences prefs = context.getSharedPreferences("moveup_auth", Context.MODE_PRIVATE);
+                    String token = prefs.getString("jwt", "");
+                    if (!token.isEmpty()) {
+                        conn.setRequestProperty("Authorization", "Bearer " + token);
+                    }
+                }
 
                 JSONObject body = new JSONObject();
-                body.put("user_id", currentUserId);
 
                 OutputStream os = conn.getOutputStream();
                 os.write(body.toString().getBytes("UTF-8"));
@@ -162,8 +202,8 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                     JSONObject res = new JSONObject(br.readLine());
                     JSONObject data = res.getJSONObject("data");
 
-                    post.isLiked = data.getBoolean("is_liked");
-                    post.likeCount = data.getInt("like_count");
+                    post.isLiked = data.optBoolean("is_liked", !post.isLiked);
+                    post.likeCount = data.optInt("like_count", post.likeCount);
 
                     mainHandler.post(() -> notifyItemChanged(position));
                 }
@@ -182,12 +222,20 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setDoOutput(true);
+                if (context != null) {
+                    SharedPreferences prefs = context.getSharedPreferences("moveup_auth", Context.MODE_PRIVATE);
+                    String token = prefs.getString("jwt", "");
+                    if (!token.isEmpty()) {
+                        conn.setRequestProperty("Authorization", "Bearer " + token);
+                    }
+                }
 
                 JSONObject body = new JSONObject();
-                body.put("user_id", currentUserId);
                 body.put("content", content);
                 body.put("timestamp", System.currentTimeMillis());
-                body.put("reply_to_id", replyToId);
+                if (replyToId != null && !replyToId.isEmpty()) {
+                    body.put("reply_to_id", replyToId);
+                }
 
                 OutputStream os = conn.getOutputStream();
                 os.write(body.toString().getBytes("UTF-8"));
@@ -198,22 +246,26 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                     JSONObject res = new JSONObject(br.readLine());
                     JSONObject data = res.getJSONObject("data");
 
-                    post.totalComments = data.getInt("total_comments");
-                    JSONArray arr = data.getJSONArray("comments");
-
-                    List<ClubComment> newComments = new ArrayList<>();
-                    for(int i=0; i<arr.length(); i++){
-                        JSONObject obj = arr.getJSONObject(i);
-                        newComments.add(new ClubComment(
-                                obj.getString("id"),
-                                obj.getString("author"),
-                                obj.getString("content"),
-                                obj.getString("time"),
-                                obj.optString("reply_to_id", null),
-                                obj.optString("reply_to_name", null)
-                        ));
+                    // Backend returns a single comment object
+                    String commentAuthor = "Unknown";
+                    JSONObject authorObj = data.optJSONObject("author");
+                    if (authorObj != null) {
+                        commentAuthor = authorObj.optString("nickname", "Unknown");
                     }
-                    post.comments = newComments;
+
+                    ClubComment newComment = new ClubComment(
+                            data.optString("id", ""),
+                            commentAuthor,
+                            data.optString("content", content),
+                            data.optString("created_at", ""),
+                            data.optString("reply_to_id", null),
+                            ""
+                    );
+                    if (post.comments == null) {
+                        post.comments = new ArrayList<>();
+                    }
+                    post.comments.add(newComment);
+                    post.totalComments = post.comments.size();
 
                     mainHandler.post(() -> {
                         inputField.setText("");
@@ -239,10 +291,11 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
     }
 
     static final class PostViewHolder extends RecyclerView.ViewHolder {
-        final TextView tvAuthor, tvTime, tvLateTitle, tvSubLine, tvSubDetail, tvLikeCount, tvViewAllComments, btnSendComment;
-        final ImageView ivLike;
+        final TextView tvAuthor, tvTime, tvLateTitle, tvSubLine, tvSubDetail, tvLikeCount, tvViewAllComments, btnSendComment, tvPostBadge;
+        final ImageView ivLike, ivPostImage;
         final LinearLayout llCommentsList;
         final EditText etCommentInput;
+        final View postImageWrap;
 
         PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -253,6 +306,9 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
             tvSubDetail = itemView.findViewById(R.id.tvSubDetail);
             tvLikeCount = itemView.findViewById(R.id.tvLikeCount);
             ivLike = itemView.findViewById(R.id.ivLike);
+            ivPostImage = itemView.findViewById(R.id.ivPostImage);
+            postImageWrap = itemView.findViewById(R.id.postImageWrap);
+            tvPostBadge = itemView.findViewById(R.id.tvPostBadge);
 
             llCommentsList = itemView.findViewById(R.id.llCommentsList);
             tvViewAllComments = itemView.findViewById(R.id.tvViewAllComments);

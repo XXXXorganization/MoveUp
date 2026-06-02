@@ -124,7 +124,6 @@ public class AItalk extends AppCompatActivity {
                 chatHistory.put(userMsgObj);
 
                 JSONObject requestBody = new JSONObject();
-                requestBody.put("user_id", currentUserId);
                 requestBody.put("chat_history", chatHistory);
 
                 // 🌟 使用动态拼接的 URL
@@ -133,6 +132,11 @@ public class AItalk extends AppCompatActivity {
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 connection.setDoOutput(true);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
                 connection.setConnectTimeout(15000);
                 connection.setReadTimeout(15000);
 
