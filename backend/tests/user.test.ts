@@ -97,12 +97,12 @@ describe('User Module Tests', () => {
       });
     });
 
-    it('should handle invalid code', async () => {
-      userService.login = jest.fn().mockRejectedValue(new Error('验证码无效'));
+    it('should handle invalid code as password attempt', async () => {
+      userService.loginWithPassword = jest.fn().mockRejectedValue(new Error('密码错误'));
 
       const response = await request(app)
         .post('/v1/auth/login')
-        .send({ phone: '13800138000', code: 'wrong' });
+        .send({ phone: '13800138000', code: 'wrongpassword' });
 
       expect(response.status).toBe(500);
     });

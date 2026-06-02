@@ -34,7 +34,7 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - name: Install dependencies
         working-directory: ./backend
-        run: npm ci
+        run: npm ci --registry=https://registry.npmmirror.com || npm ci || npm ci
       - name: Run migrations
         working-directory: ./backend
         run: npx knex migrate:latest --env test
