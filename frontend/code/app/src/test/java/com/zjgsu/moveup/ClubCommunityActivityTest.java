@@ -178,7 +178,7 @@ public class ClubCommunityActivityTest {
         Robolectric.flushForegroundThreadScheduler();
         activity.findViewById(R.id.btnSendPost).performClick();
 
-        assertEquals("Please write something", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
+        assertEquals("Please write something or add an image", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
     }
 
     @Test
