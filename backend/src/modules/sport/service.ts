@@ -135,13 +135,13 @@ export class SportService {
 
     const updates: Partial<SportRecord> = {
       endTime,
-      duration: finalRecord.duration,
+      duration: Math.floor(finalRecord.duration),
       status: 'completed',
       distance: finalRecord.distance,
       calories: finalRecord.calories,
-      averagePace: finalRecord.averagePace,
-      maxHeartRate: finalRecord.maxHeartRate,
-      averageHeartRate: finalRecord.averageHeartRate,
+      averagePace: finalRecord.averagePace ? Math.round(finalRecord.averagePace) : undefined,
+      maxHeartRate: finalRecord.maxHeartRate ? Math.round(finalRecord.maxHeartRate) : undefined,
+      averageHeartRate: finalRecord.averageHeartRate ? Math.round(finalRecord.averageHeartRate) : undefined,
     };
 
     const updatedRecord = await this.repository.updateSportRecord(recordId, updates);
@@ -170,9 +170,9 @@ export class SportService {
     const updates: Partial<SportRecord> = {
       distance: metrics.distance,
       duration: metrics.duration,
-      averagePace: metrics.averagePace,
-      maxHeartRate: metrics.maxHeartRate,
-      averageHeartRate: metrics.averageHeartRate,
+      averagePace: metrics.averagePace ? Math.round(metrics.averagePace) : undefined,
+      maxHeartRate: metrics.maxHeartRate ? Math.round(metrics.maxHeartRate) : undefined,
+      averageHeartRate: metrics.averageHeartRate ? Math.round(metrics.averageHeartRate) : undefined,
     };
 
     const updatedRecord = await this.repository.updateSportRecord(recordId, updates);

@@ -87,6 +87,10 @@ public class Plan_details extends AppCompatActivity {
             showDeleteConfirmDialog(position);
         });
 
+        adapter.setOnItemCheckListener(position -> {
+            toggleItemComplete(position);
+        });
+
         FloatingActionButton fabAdd = findViewById(R.id.fabAddPlan);
         fabAdd.setOnClickListener(v -> {
             showAddPlanDialog();
@@ -186,11 +190,16 @@ public class Plan_details extends AppCompatActivity {
             HttpURLConnection connection = null;
             try {
                 // 🌟 修改点：动态拼接 BASE_URL
-                String urlString = BASE_URL + "/v1/plan/details?user_id=" + currentUserId + "&day=" + targetDay;
+                String urlString = BASE_URL + "/v1/plan/details?day=" + targetDay;
                 URL url = new URL(urlString);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (connection.getResponseCode() == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
@@ -208,10 +217,11 @@ public class Plan_details extends AppCompatActivity {
                         if (listArray != null) {
                             for (int i = 0; i < listArray.length(); i++) {
                                 JSONObject obj = listArray.getJSONObject(i);
-                                planList.add(new PlanDetailItem(
-                                        obj.optString("time", ""),
-                                        obj.optString("distance", "")
-                                ));
+                                boolean completed = obj.optBoolean("is_completed", false);
+                                String time = obj.optString("time", "");
+                                double dist = obj.optDouble("distance", 0);
+                                String distStr = dist > 0 ? String.valueOf(dist) : "";
+                                planList.add(new PlanDetailItem(time, distStr, completed));
                             }
                         }
                         mainHandler.post(() -> adapter.notifyDataSetChanged());
@@ -235,9 +245,13 @@ public class Plan_details extends AppCompatActivity {
                 connection.setRequestMethod("POST");
                 connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 JSONObject jsonBody = new JSONObject();
-                jsonBody.put("user_id", currentUserId);
                 jsonBody.put("day", targetDay);
                 jsonBody.put("start_time", startTime);
                 jsonBody.put("end_time", endTime);
@@ -268,6 +282,49 @@ public class Plan_details extends AppCompatActivity {
         }).start();
     }
 
+    private void toggleItemComplete(int position) {
+        if (position < 0 || position >= planList.size()) return;
+        PlanDetailItem item = planList.get(position);
+
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(BASE_URL + "/v1/plan/toggle_complete");
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("PUT");
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
+
+                JSONObject jsonBody = new JSONObject();
+                jsonBody.put("day", targetDay);
+                jsonBody.put("index", position);
+                OutputStream os = connection.getOutputStream();
+                os.write(jsonBody.toString().getBytes("UTF-8"));
+                os.close();
+
+                if (connection.getResponseCode() == 200) {
+                    BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    JSONObject res = new JSONObject(br.readLine());
+                    boolean newStatus = res.getJSONObject("data").optBoolean("is_completed", !item.isCompleted);
+
+                    mainHandler.post(() -> {
+                        item.isCompleted = newStatus;
+                        adapter.notifyItemChanged(position);
+                    });
+                }
+            } catch (Exception e) {
+                Log.e("API_TEST", "Toggle complete error", e);
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }).start();
+    }
+
     private void deletePlanFromServer(int position) {
         new Thread(() -> {
             HttpURLConnection connection = null;
@@ -278,9 +335,13 @@ public class Plan_details extends AppCompatActivity {
                 connection.setRequestMethod("POST");
                 connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 JSONObject jsonBody = new JSONObject();
-                jsonBody.put("user_id", currentUserId);
                 jsonBody.put("day", targetDay);
                 jsonBody.put("index", position);
 

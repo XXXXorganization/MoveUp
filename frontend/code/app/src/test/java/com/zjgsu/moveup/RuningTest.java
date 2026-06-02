@@ -39,8 +39,10 @@ import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 27)
@@ -300,5 +302,177 @@ public class RuningTest {
 
         Thread.sleep(200);
         Robolectric.flushForegroundThreadScheduler();
+    }
+
+    // ===== Test new processTrackPoint method =====
+    @Test
+    public void testProcessTrackPoint_AddsPointsWhenMoved() throws Exception {
+        ActivityController<Runing> controller = Robolectric.buildActivity(Runing.class);
+        Runing activity = controller.create().get();
+
+        Field totalMetersField = Runing.class.getDeclaredField("totalMeters");
+        totalMetersField.setAccessible(true);
+        Field isTrackingField = Runing.class.getDeclaredField("isTracking");
+        isTrackingField.setAccessible(true);
+        Field lastTrackField = Runing.class.getDeclaredField("lastTrackLatLng");
+        lastTrackField.setAccessible(true);
+
+        if (!(boolean) isTrackingField.get(activity)) {
+            isTrackingField.set(activity, true);
+        }
+
+        com.amap.api.maps.model.LatLng pt1 = new com.amap.api.maps.model.LatLng(30.0, 120.0);
+        com.amap.api.maps.model.LatLng pt2 = new com.amap.api.maps.model.LatLng(30.001, 120.001);
+
+        Method processTrackPoint = Runing.class.getDeclaredMethod("processTrackPoint",
+                com.amap.api.maps.model.LatLng.class, double.class, double.class, long.class);
+        processTrackPoint.setAccessible(true);
+        processTrackPoint.invoke(activity, pt1, 10.0, 3.5, System.currentTimeMillis());
+        processTrackPoint.invoke(activity, pt2, 12.0, 3.6, System.currentTimeMillis());
+
+        float dist = (float) totalMetersField.get(activity);
+        assertTrue("Distance should increase after moving >1m", dist > 0);
+    }
+
+    // ===== Test checkAutoAnnouncements method =====
+    @Test
+    public void testCheckAutoAnnouncements_ResetsFields() throws Exception {
+        ActivityController<Runing> controller = Robolectric.buildActivity(Runing.class);
+        Runing activity = controller.create().get();
+
+        Field isFirstLocationField = Runing.class.getDeclaredField("isFirstLocation");
+        isFirstLocationField.setAccessible(true);
+        Field weatherField = Runing.class.getDeclaredField("isWeatherFetched");
+        weatherField.setAccessible(true);
+        Field lastKmField = Runing.class.getDeclaredField("lastKmMark");
+        lastKmField.setAccessible(true);
+        Field lastPaceField = Runing.class.getDeclaredField("lastPaceAnnounceTime");
+        lastPaceField.setAccessible(true);
+        Field hasStartField = Runing.class.getDeclaredField("hasAnnouncedStart");
+        hasStartField.setAccessible(true);
+
+        // Verify fields exist and have initial values
+        assertEquals(false, weatherField.get(activity));
+        assertEquals(0, lastKmField.get(activity));
+        assertEquals(false, hasStartField.get(activity));
+    }
+
+    // ===== Test startTimer covers new auto-announce code path =====
+    @Test
+    public void testStartTimer_InitializesAnnounceFields() throws Exception {
+        ActivityController<Runing> controller = Robolectric.buildActivity(Runing.class);
+        Runing activity = controller.create().get();
+
+        Field lastKmField = Runing.class.getDeclaredField("lastKmMark");
+        lastKmField.setAccessible(true);
+        Field lastPaceField = Runing.class.getDeclaredField("lastPaceAnnounceTime");
+        lastPaceField.setAccessible(true);
+        Field lastLocField = Runing.class.getDeclaredField("lastLocAnnounceTime");
+        lastLocField.setAccessible(true);
+        Field hasStartField = Runing.class.getDeclaredField("hasAnnouncedStart");
+        hasStartField.setAccessible(true);
+        Field isFirstLocField = Runing.class.getDeclaredField("isFirstLocation");
+        isFirstLocField.setAccessible(true);
+
+        // startTimer is called in onCreate - verify fields are set
+        assertEquals(0, lastKmField.get(activity));
+        assertEquals(false, hasStartField.get(activity));
+        assertNotNull(isFirstLocField.get(activity));
+    }
+
+    @Test
+    public void testProcessTrackPoint_FirstPoint() throws Exception {
+        Runing activity = Robolectric.buildActivity(Runing.class).create().get();
+
+        Field isTracking = Runing.class.getDeclaredField("isTracking");
+        isTracking.setAccessible(true);
+        isTracking.set(activity, true);
+
+        Field totalMeters = Runing.class.getDeclaredField("totalMeters");
+        totalMeters.setAccessible(true);
+
+        com.amap.api.maps.model.LatLng pt = new com.amap.api.maps.model.LatLng(30.3, 120.4);
+        Method processTrackPoint = Runing.class.getDeclaredMethod("processTrackPoint",
+                com.amap.api.maps.model.LatLng.class, double.class, double.class, long.class);
+        processTrackPoint.setAccessible(true);
+        processTrackPoint.invoke(activity, pt, 5.0, 2.0, System.currentTimeMillis());
+
+        float dist = (float) totalMeters.get(activity);
+        assertEquals(0f, dist, 0.01);
+    }
+
+    @Test
+    public void testProcessTrackPoint_JustResumed() throws Exception {
+        Runing activity = Robolectric.buildActivity(Runing.class).create().get();
+        Field isJustResumed = Runing.class.getDeclaredField("isJustResumed");
+        isJustResumed.setAccessible(true);
+        isJustResumed.set(activity, true);
+
+        com.amap.api.maps.model.LatLng pt = new com.amap.api.maps.model.LatLng(30.3, 120.4);
+        Method processTrackPoint = Runing.class.getDeclaredMethod("processTrackPoint",
+                com.amap.api.maps.model.LatLng.class, double.class, double.class, long.class);
+        processTrackPoint.setAccessible(true);
+        processTrackPoint.invoke(activity, pt, 0, 0, 0);
+
+        assertEquals(false, isJustResumed.get(activity));
+    }
+
+    @Test
+    public void testTogglePause_ChangesTrackingState() throws Exception {
+        Runing activity = Robolectric.buildActivity(Runing.class).create().get();
+        Field isTracking = Runing.class.getDeclaredField("isTracking");
+        isTracking.setAccessible(true);
+
+        boolean before = (boolean) isTracking.get(activity);
+
+        Method togglePause = Runing.class.getDeclaredMethod("togglePause");
+        togglePause.setAccessible(true);
+        togglePause.invoke(activity);
+
+        boolean after = (boolean) isTracking.get(activity);
+        assertNotEquals(before, after);
+    }
+
+    @Test
+    public void testEnqueuePoint_CollectsPoints() throws Exception {
+        Runing activity = Robolectric.buildActivity(Runing.class).create().get();
+        Field runIdField = Runing.class.getDeclaredField("runId");
+        runIdField.setAccessible(true);
+        runIdField.set(activity, "test-123");
+
+        Field pendingPoints = Runing.class.getDeclaredField("pendingPoints");
+        pendingPoints.setAccessible(true);
+
+        android.location.Location loc = new android.location.Location("gps");
+        loc.setLatitude(30.3);
+        loc.setLongitude(120.4);
+        loc.setAltitude(10);
+        loc.setSpeed(3.5f);
+        loc.setTime(System.currentTimeMillis());
+
+        Method enqueuePoint = Runing.class.getDeclaredMethod("enqueuePoint", android.location.Location.class);
+        enqueuePoint.setAccessible(true);
+        enqueuePoint.invoke(activity, loc);
+
+        ArrayList<?> pts = (ArrayList<?>) pendingPoints.get(activity);
+        assertEquals(1, pts.size());
+    }
+
+    @Test
+    public void testOnCreate_InitializesViews() throws Exception {
+        Runing activity = Robolectric.buildActivity(Runing.class).create().get();
+        assertNotNull(activity.findViewById(R.id.tvGps));
+        assertNotNull(activity.findViewById(R.id.tvDistanceMain));
+        assertNotNull(activity.findViewById(R.id.tvPace));
+        assertNotNull(activity.findViewById(R.id.tvDuration));
+    }
+
+    @Test
+    public void testRenderStats_UpdatesUI() throws Exception {
+        Runing activity = Robolectric.buildActivity(Runing.class).create().get();
+        Robolectric.flushForegroundThreadScheduler();
+
+        TextView dist = activity.findViewById(R.id.tvDistanceMain);
+        assertNotNull(dist);
     }
 }

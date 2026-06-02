@@ -8,6 +8,12 @@ import { createCoachingRoutes } from './routes/coaching';
 import { createSocialRoutes } from './routes/social';
 import { createChallengeRoutes } from './routes/challenge';
 import { createAIRoutes } from './routes/ai';
+import { createCompatibilityRoutes } from './routes/compatibility';
+import { createClubRoutes } from './routes/club';
+import { ClubController } from './modules/club/controller';
+import { ClubService } from './modules/club/service';
+import { ClubRepository } from './modules/club/repository';
+import { ClubModel } from './modules/club/model';
 import { UserController } from './modules/user/controller';
 import { UserService } from './modules/user/service';
 import { UserRepository } from './modules/user/repository';
@@ -60,6 +66,11 @@ const challengeController = new ChallengeController(challengeService);
 const aiService = new AIService();
 const aiController = new AIController(aiService);
 
+const clubModel = new ClubModel(db);
+const clubRepository = new ClubRepository(clubModel);
+const clubService = new ClubService(clubRepository);
+const clubController = new ClubController(clubService);
+
 // 路由
 app.use('/v1', createUserRoutes(userController));
 app.use('/v1', createSportRoutes(sportController));
@@ -67,6 +78,8 @@ app.use('/v1', createCoachingRoutes(coachingController));
 app.use('/v1', createSocialRoutes(socialController));
 app.use('/v1', createChallengeRoutes(challengeController));
 app.use('/v1', createAIRoutes(aiController));
+app.use('/v1', createCompatibilityRoutes(sportService, db));
+app.use('/v1', createClubRoutes(clubController));
 
 // 健康检查端点
 app.get('/health', (req, res) => {

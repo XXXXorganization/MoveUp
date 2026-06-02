@@ -35,10 +35,13 @@
         <activity
             android:name=".mine_edit"
             android:exported="false" />
+        <activity
+            android:name=".ClubCommunityActivity"
+            android:exported="false" />
 
         <meta-data
             android:name="com.amap.api.v2.apikey"
-            android:value="b4050fdb3dbe2c1d452da34b6b8f79cc" />
+            android:value="a5a541cd725e466b0f81d41a8b015411" />
 
         <service android:name="com.amap.api.location.APSService" />
 

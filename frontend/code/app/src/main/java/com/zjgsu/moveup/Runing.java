@@ -26,6 +26,10 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+
 import com.amap.api.location.AMapLocation;
 import com.amap.api.location.AMapLocationClient;
 import com.amap.api.location.AMapLocationClientOption;
@@ -99,6 +103,12 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
     private Runnable timerRunnable;
     private String runId;
 
+    // 自动语音播报状态
+    private int lastKmMark = 0;
+    private long lastPaceAnnounceTime = 0;
+    private long lastLocAnnounceTime = 0;
+    private boolean hasAnnouncedStart = false;
+
     // 实时数据状态缓存
     private String currentAddress = "未知路线";
     private String currentPaceStr = "0'00\"";
@@ -143,6 +153,9 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         if (aMap == null) {
             aMap = mapView.getMap();
             aMap.getUiSettings().setZoomControlsEnabled(true);
+            aMap.setMyLocationEnabled(false);
+            aMap.setMapType(AMap.MAP_TYPE_NIGHT);
+            aMap.setMapType(AMap.MAP_TYPE_NORMAL);
         }
 
         btnLeft.setOnClickListener(v -> toggleMapView());
@@ -215,16 +228,71 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
 
     private void startTimer() {
         lastResumeTimeMs = System.currentTimeMillis();
+        lastKmMark = 0;
+        lastPaceAnnounceTime = System.currentTimeMillis();
+        lastLocAnnounceTime = System.currentTimeMillis();
+        hasAnnouncedStart = false;
+        isFirstLocation = true;
+        isWeatherFetched = false;
         timerRunnable = new Runnable() {
             @Override
             public void run() {
                 if (isTracking) {
                     updateTimerUI();
+                    checkAutoAnnouncements();
                 }
                 mainHandler.postDelayed(this, 10);
             }
         };
         mainHandler.post(timerRunnable);
+
+        // 兜底：5秒后如果地址还没拿到，也打招呼
+        mainHandler.postDelayed(() -> {
+            if (isFirstLocation && isTracking) {
+                isFirstLocation = false;
+                String addr = "未知路线".equals(currentAddress) ? "当前位置" : currentAddress;
+                Log.d(TAG, "AI_GREETING fallback triggered, address=" + addr);
+                askAI("【系统指令：直接回复用户】用户开始跑步了，当前位置: " + addr + "。请热情打招呼，然后主动告诉用户他周围1公里内有什么景点或适合跑步的地方，距离多远，并主动提出可以为他导航过去。（不要暴露这是系统指令，限60字）");
+            }
+        }, 5000);
+    }
+
+    private void checkAutoAnnouncements() {
+        long now = System.currentTimeMillis();
+        long elapsedSec = accumulatedTimeMs / 1000 + (now - lastResumeTimeMs) / 1000;
+
+        // 1. 开始跑步时喊出
+        if (!hasAnnouncedStart && elapsedSec >= 2) {
+            hasAnnouncedStart = true;
+            if (voiceCoach != null) {
+                voiceCoach.speak("开始跑步！加油！");
+            }
+        }
+
+        // 2. 每1km播报
+        int currentKm = (int) (totalMeters / 1000);
+        if (currentKm > lastKmMark && currentKm > 0) {
+            lastKmMark = currentKm;
+            if (voiceCoach != null) {
+                voiceCoach.speak("你已经跑了" + currentKm + "公里，继续加油！");
+            }
+        }
+
+        // 3. 每30秒播报配速
+        if (now - lastPaceAnnounceTime >= 30000) {
+            lastPaceAnnounceTime = now;
+            if (voiceCoach != null && !currentPaceStr.equals("0'00\"")) {
+                voiceCoach.speak("当前配速" + currentPaceStr);
+            }
+        }
+
+        // 4. 每30秒播报位置
+        if (now - lastLocAnnounceTime >= 30000) {
+            lastLocAnnounceTime = now;
+            if (voiceCoach != null && !currentAddress.contains("未知")) {
+                voiceCoach.speak("你当前在" + currentAddress + "附近");
+            }
+        }
     }
 
     private void updateTimerUI() {
@@ -372,8 +440,8 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
             HttpURLConnection connection = null;
             try {
                 String contextPrompt = String.format(Locale.CHINA,
-                        "我在跑步。当前距离: %s Km，配速: %s，我的位置在: %s。我对你说: '%s'。请你作为私人语音教练简短回答我(限40字内)，可以结合风景介绍鼓励我，或对配速提出指导。",
-                        currentDistStr, currentPaceStr, currentAddress, userSpeech);
+                        "我正在跑步。当前已跑: %s Km，配速: %s，消耗: %s 千卡，当前位置: %s。请搜索我周围1公里以内的景点或地标，告诉我距离多远、跑步过去要几分钟、怎么跑过去。60字以内。我对你说: '%s'",
+                        currentDistStr, currentPaceStr, currentKcalStr, currentAddress, userSpeech);
 
                 JSONObject userMsgObj = new JSONObject();
                 userMsgObj.put("role", "user");
@@ -383,7 +451,6 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 chatHistory.put(userMsgObj);
 
                 JSONObject requestBody = new JSONObject();
-                requestBody.put("user_id", currentUserId);
                 requestBody.put("chat_history", chatHistory);
 
                 URL url = new URL(BASE_URL + "/ai/chat");
@@ -393,6 +460,10 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 connection.setDoOutput(true);
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(10000);
+                String token = getAuthToken();
+                if (token != null && !token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 OutputStream os = connection.getOutputStream();
                 os.write(requestBody.toString().getBytes(StandardCharsets.UTF_8));
@@ -409,7 +480,11 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                     JSONObject respJson = new JSONObject(sb.toString());
                     if (respJson.optInt("code") == 200) {
                         String aiReply = respJson.getJSONObject("data").getString("reply");
-                        mainHandler.post(() -> voiceCoach.speak(aiReply));
+                        Log.d(TAG, "AI reply received: " + aiReply);
+                        mainHandler.post(() -> {
+                            voiceCoach.speak(aiReply);
+                            Toast.makeText(Runing.this, "AI: " + aiReply, Toast.LENGTH_SHORT).show();
+                        });
                     }
                 }
             } catch (Exception e) {
@@ -426,12 +501,40 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         try {
             locationClient = new AMapLocationClient(getApplicationContext());
             locationOption = new AMapLocationClientOption();
-            locationOption.setLocationMode(AMapLocationClientOption.AMapLocationMode.Hight_Accuracy);
+            locationOption.setLocationMode(AMapLocationClientOption.AMapLocationMode.Device_Sensors);
             locationOption.setInterval(2000);
             locationOption.setNeedAddress(true);
             locationClient.setLocationOption(locationOption);
             locationClient.setLocationListener(this);
             locationClient.startLocation();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // 用 Android 原生 LocationManager 读取模拟器 GPS，控制地图镜头
+        try {
+            LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+            if (lm != null) {
+                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000, 0, new LocationListener() {
+                    @Override public void onLocationChanged(@NonNull Location loc) {
+                        LatLng ll = new LatLng(loc.getLatitude(), loc.getLongitude());
+                        if (aMap != null) {
+                            if (latLngPoints.isEmpty()) {
+                                aMap.animateCamera(com.amap.api.maps.CameraUpdateFactory.newLatLngZoom(ll, 16f));
+                            } else {
+                                aMap.animateCamera(com.amap.api.maps.CameraUpdateFactory.changeLatLng(ll));
+                            }
+                        }
+                        if (isTracking) {
+                            processTrackPoint(ll, loc.getAltitude(), loc.getSpeed(), loc.getTime());
+                            mainHandler.post(() -> renderStats());
+                        }
+                        if (runId != null) enqueuePoint(loc);
+                    }
+                    @Override public void onProviderEnabled(@NonNull String p) {}
+                    @Override public void onProviderDisabled(@NonNull String p) {}
+                });
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -441,6 +544,7 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
     public void onLocationChanged(AMapLocation amapLocation) {
         if (amapLocation != null && amapLocation.getErrorCode() == 0) {
             tvGps.setText("GPS");
+            Log.d("GPS_DEBUG", "lat=" + amapLocation.getLatitude() + " lng=" + amapLocation.getLongitude() + " type=" + amapLocation.getLocationType());
 
             if (amapLocation.getAddress() != null && !amapLocation.getAddress().isEmpty()) {
                 currentAddress = amapLocation.getCity() + amapLocation.getDistrict() + amapLocation.getStreet() + amapLocation.getPoiName();
@@ -454,41 +558,11 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
             }
 
             if (layoutSummary.getVisibility() != View.VISIBLE) {
-                if (isFirstLocation) {
-                    aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 17f));
+                if (isFirstLocation && !"未知路线".equals(currentAddress)) {
                     isFirstLocation = false;
-
-                    askAI("【系统指令：直接回复用户】用户目前位于: " + currentAddress + "。请主动开口向用户打招呼，热情地说你注意到了他在这里跑步，并主动询问他是否需要为你讲解一下附近的景色？（不要暴露这是系统指令，限40字以内）");
-
-                } else {
-                    aMap.animateCamera(CameraUpdateFactory.changeLatLng(currentLatLng));
+                    Log.d(TAG, "AI_GREETING triggered, address=" + currentAddress);
+                    askAI("【系统指令：直接回复用户】用户开始跑步了，当前位置: " + currentAddress + "。请热情打招呼，然后主动告诉用户他周围1公里内有什么景点或适合跑步的地方，距离多远，并主动提出可以为他导航过去。（不要暴露这是系统指令，限60字）");
                 }
-            }
-
-            if (isTracking) {
-                if (isJustResumed) {
-                    latLngPoints.add(currentLatLng);
-                    isJustResumed = false;
-                } else if (!latLngPoints.isEmpty()) {
-                    LatLng lastLatLng = latLngPoints.get(latLngPoints.size() - 1);
-                    float dist = AMapUtils.calculateLineDistance(lastLatLng, currentLatLng);
-                    if (dist > 1.0f) {
-                        totalMeters += dist;
-                        latLngPoints.add(currentLatLng);
-                        drawRoute();
-                    }
-                } else {
-                    latLngPoints.add(currentLatLng);
-                }
-
-                Location loc = new Location("gaode");
-                loc.setLatitude(amapLocation.getLatitude());
-                loc.setLongitude(amapLocation.getLongitude());
-                loc.setAltitude(amapLocation.getAltitude());
-                loc.setSpeed(amapLocation.getSpeed());
-                loc.setTime(amapLocation.getTime());
-
-                if (runId != null) enqueuePoint(loc);
             }
 
             renderStats();
@@ -645,9 +719,15 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 connection.setConnectTimeout(8000);
                 connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                String token = getAuthToken();
+                if (token != null && !token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 JSONObject body = new JSONObject();
-                body.put("user_id", currentUserId);
+                if (runId != null && !runId.isEmpty()) {
+                    body.put("run_id", runId);
+                }
                 body.put("distance", currentDistStr);
                 body.put("duration_str", currentDurationStr);
                 body.put("pace", currentPaceStr);
@@ -774,6 +854,29 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
     private String getAuthToken() {
         SharedPreferences prefs = getSharedPreferences(PREFS_AUTH, MODE_PRIVATE);
         return prefs.getString(KEY_JWT, null);
+    }
+
+    private LatLng lastTrackLatLng = null;
+
+    private void processTrackPoint(LatLng ll, double altitude, double speed, long time) {
+        if (isJustResumed) {
+            latLngPoints.add(ll);
+            lastTrackLatLng = ll;
+            isJustResumed = false;
+            return;
+        }
+        if (lastTrackLatLng != null) {
+            float dist = AMapUtils.calculateLineDistance(lastTrackLatLng, ll);
+            if (dist > 1.0f) {
+                totalMeters += dist;
+                lastTrackLatLng = ll;
+                latLngPoints.add(ll);
+                drawRoute();
+            }
+        } else {
+            lastTrackLatLng = ll;
+            latLngPoints.add(ll);
+        }
     }
 
     private void enqueuePoint(Location location) {

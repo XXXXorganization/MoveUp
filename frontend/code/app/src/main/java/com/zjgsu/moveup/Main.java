@@ -130,6 +130,11 @@ public class Main extends AppCompatActivity {
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (connection.getResponseCode() == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
@@ -183,10 +188,15 @@ public class Main extends AppCompatActivity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                URL url = new URL(BASE_URL + "/v1/runs?user_id=" + userId);
+                URL url = new URL(BASE_URL + "/v1/runs");
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (connection.getResponseCode() == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
@@ -262,7 +272,7 @@ public class Main extends AppCompatActivity {
         });
 
         if (menuClub != null) menuClub.setOnClickListener(v -> {
-            startActivity(new Intent(Main.this, clubterm.class));
+            startActivity(new Intent(Main.this, Find.class));
             finish();
         });
 

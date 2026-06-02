@@ -79,10 +79,15 @@ public class mine_edit extends AppCompatActivity {
             HttpURLConnection connection = null;
             try {
                 // 🌟 修改点 1：使用 BASE_URL 拼接请求地址
-                URL url = new URL(BASE_URL + "/v1/user/profile?user_id=" + currentUserId);
+                URL url = new URL(BASE_URL + "/v1/user/profile");
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (connection.getResponseCode() == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
@@ -139,10 +144,14 @@ public class mine_edit extends AppCompatActivity {
                 connection.setRequestMethod("PUT");
                 connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 // 构造更新数据
                 JSONObject jsonBody = new JSONObject();
-                jsonBody.put("user_id", currentUserId); // 告诉后端更新哪个用户
                 jsonBody.put("username", newUsername);
                 jsonBody.put("email", newEmail);
                 jsonBody.put("password", newPassword);

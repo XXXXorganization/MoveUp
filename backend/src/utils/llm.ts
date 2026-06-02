@@ -57,3 +57,38 @@ export function getLLMClient(): LLMClient {
   if (!client) client = new LLMClient();
   return client;
 }
+
+// Qwen 聊天客户端（通义千问 via SiliconFlow）
+let qwenClient: LLMClient | null = null;
+
+export function getQwenClient(): LLMClient {
+  if (!qwenClient) {
+    const apiKey = process.env.QWEN_API_KEY || '';
+    const baseUrl = process.env.QWEN_BASE_URL || 'https://api.siliconflow.cn';
+    const model = process.env.QWEN_MODEL || 'Qwen/Qwen2.5-7B-Instruct';
+    qwenClient = new LLMClient();
+    (qwenClient as any).apiKey = apiKey;
+    (qwenClient as any).baseUrl = baseUrl;
+    (qwenClient as any).model = model;
+  }
+  return qwenClient;
+}
+
+// 聊天消息类型（兼容不同格式）
+export async function aiChat(messages: Message[]): Promise<string> {
+  try {
+    // 优先用 DeepSeek（容器内直连不需要代理）
+    const client = getLLMClient();
+    const response = await client.chat(messages, 0.8);
+    return response.content;
+  } catch (e1) {
+    // DeepSeek 失败时回退到通义千问
+    try {
+      const qwen = getQwenClient();
+      const response = await qwen.chat(messages, 0.8);
+      return response.content;
+    } catch (e2) {
+      throw e1; // 两个都失败了
+    }
+  }
+}

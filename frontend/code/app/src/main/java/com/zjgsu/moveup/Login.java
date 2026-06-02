@@ -179,8 +179,18 @@ public class Login extends AppCompatActivity {
                                     parsedData = dataObj.toString();
                                     String token = dataObj.optString("token", "");
                                     if (!token.isEmpty()) {
-                                        SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
-                                        prefs.edit().putString("jwt", token).putString("user_phone", phone).apply();
+                                        SharedPreferences.Editor editor = getSharedPreferences("moveup_auth", MODE_PRIVATE).edit();
+                                        editor.putString("jwt", token);
+                                        editor.putString("user_phone", phone);
+                                        // 存储 user_id (UUID)，用于后续 JWT 认证的请求
+                                        if (dataObj.has("user")) {
+                                            JSONObject userObj = dataObj.getJSONObject("user");
+                                            String userId = userObj.optString("id", "");
+                                            if (!userId.isEmpty()) {
+                                                editor.putString("user_id", userId);
+                                            }
+                                        }
+                                        editor.apply();
                                     }
                                 }
                             }

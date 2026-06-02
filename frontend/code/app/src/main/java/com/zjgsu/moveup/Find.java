@@ -2,6 +2,7 @@ package com.zjgsu.moveup;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -145,6 +146,11 @@ public class Find extends AppCompatActivity {
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
+                SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
+                String token = prefs.getString("jwt", "");
+                if (!token.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                }
 
                 if (connection.getResponseCode() == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
