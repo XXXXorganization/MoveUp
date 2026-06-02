@@ -12,6 +12,7 @@ export interface User {
   target_distance?: number; // 米
   target_time?: number; // 分钟
   role: string; // 'user' | 'admin'
+  password_hash?: string;
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +27,7 @@ export interface CreateUserRequest {
   weight?: number;
   target_distance?: number;
   target_time?: number;
+  password_hash?: string;
 }
 
 export interface UpdateUserRequest {

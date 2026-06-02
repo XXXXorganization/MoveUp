@@ -2,6 +2,7 @@
 import { UserRepository } from './repository';
 import { User, CreateUserRequest, UpdateUserRequest, LoginRequest, LoginResponse, SendCodeRequest, UserProfileResponse } from './types';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { AppError } from '../../utils/errors';
 
 export class UserService {
@@ -68,6 +69,74 @@ export class UserService {
     return {
       token,
       expires_in: expiresIn,
+      user: {
+        id: user.id,
+        nickname: user.nickname,
+        avatar: user.avatar,
+      },
+    };
+  }
+
+  async registerWithPassword(phone: string, username: string, password: string): Promise<LoginResponse> {
+    // 检查手机号是否已存在
+    const existingUser = await this.userRepository.findByPhone(phone);
+    if (existingUser) {
+      throw new AppError('该手机号已注册', 400);
+    }
+
+    // 加密密码
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // 创建用户
+    const createData: CreateUserRequest = {
+      phone,
+      nickname: username,
+      password_hash: passwordHash,
+    };
+    const user = await this.userRepository.create(createData);
+
+    // 生成JWT
+    const token = jwt.sign(
+      { userId: user.id, phone: user.phone },
+      this.jwtSecret,
+      { expiresIn: this.jwtExpiresIn }
+    );
+
+    return {
+      token,
+      expires_in: this.jwtExpiresIn,
+      user: {
+        id: user.id,
+        nickname: user.nickname,
+        avatar: user.avatar,
+      },
+    };
+  }
+
+  async loginWithPassword(phone: string, password: string): Promise<LoginResponse> {
+    const user = await this.userRepository.findByPhone(phone);
+    if (!user) {
+      throw new AppError('手机号未注册', 400);
+    }
+
+    if (!user.password_hash) {
+      throw new AppError('该账号未设置密码，请使用验证码登录', 400);
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    if (!isPasswordValid) {
+      throw new AppError('密码错误', 400);
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, phone: user.phone },
+      this.jwtSecret,
+      { expiresIn: this.jwtExpiresIn }
+    );
+
+    return {
+      token,
+      expires_in: this.jwtExpiresIn,
       user: {
         id: user.id,
         nickname: user.nickname,
