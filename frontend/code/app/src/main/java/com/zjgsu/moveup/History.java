@@ -95,12 +95,6 @@ public class History extends AppCompatActivity {
         fetchHistoryData();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        fetchHistoryData();
-    }
-
     private void setupMenuClicks() {
         TextView menuHome = findViewById(R.id.menu_home);
         TextView menuHistory = findViewById(R.id.menu_history);

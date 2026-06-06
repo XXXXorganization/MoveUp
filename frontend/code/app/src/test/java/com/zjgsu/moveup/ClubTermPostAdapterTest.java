@@ -60,7 +60,7 @@ public class ClubTermPostAdapterTest {
                             .setBody("{\"code\":200,\"data\":{\"is_liked\":true,\"like_count\":11}}");
                 } else if (path.contains("/comment")) {
                     return new MockResponse().setResponseCode(200)
-                            .setBody("{\"code\":200,\"data\":{\"total_comments\":4,\"comments\":[{\"id\":\"c99\",\"author\":\"Robot\",\"content\":\"Test!\",\"time\":\"now\"}]}}");
+                            .setBody("{\"code\":200,\"data\":{\"id\":\"c99\",\"author\":{\"nickname\":\"Robot\"},\"content\":\"Test!\",\"created_at\":\"now\"}}");
                 }
                 return new MockResponse().setResponseCode(404);
             }
@@ -190,8 +190,8 @@ public class ClubTermPostAdapterTest {
         Thread.sleep(200);
         Robolectric.flushForegroundThreadScheduler();
 
-        // 验证评论数据是否被更新，且输入框被清空
-        assertEquals(4, dummyPosts.get(0).totalComments);
+        // 验证评论数据是否被更新（2 existing + 1 new = 3），且输入框被清空
+        assertEquals(3, dummyPosts.get(0).totalComments);
         assertEquals("", holder.etCommentInput.getText().toString());
         assertNull("发送成功后Tag应该被清空", holder.etCommentInput.getTag());
 

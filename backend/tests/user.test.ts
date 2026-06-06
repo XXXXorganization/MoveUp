@@ -97,17 +97,41 @@ describe('User Module Tests', () => {
       });
     });
 
-    it('should handle invalid code', async () => {
-      userService.login = jest.fn().mockRejectedValue(new Error('验证码无效'));
+    it('should handle invalid code as password attempt', async () => {
+      userService.loginWithPassword = jest.fn().mockRejectedValue(new Error('密码错误'));
 
       const response = await request(app)
         .post('/v1/auth/login')
-        .send({ phone: '13800138000', code: 'wrong' });
+        .send({ phone: '13800138000', code: 'wrongpassword' });
 
       expect(response.status).toBe(500);
     });
   });
 
-  // Add more tests for getUserProfile and updateUserProfile
-  // Note: These require authentication middleware mocking
+  describe('POST /v1/auth/register - Password Register', () => {
+    it('should register new user with password', async () => {
+      userService.registerWithPassword = jest.fn().mockResolvedValue({
+        token: 'jwt-token', expires_in: 7200,
+        user: { id: 'new-id', nickname: 'newuser', avatar: null },
+      });
+
+      const res = await request(app).post('/v1/auth/register')
+        .send({ phone: '13600000001', username: 'newuser', password: '123456' });
+      expect(res.status).toBe(200);
+      expect(res.body.data.token).toBe('jwt-token');
+    });
+
+    it('should reject missing fields', async () => {
+      const res = await request(app).post('/v1/auth/register')
+        .send({ phone: '13600000001' });
+      expect(res.status).toBe(400);
+    });
+
+    it('should handle registration error from service', async () => {
+      userService.registerWithPassword = jest.fn().mockRejectedValue(new Error('DB Error'));
+      const res = await request(app).post('/v1/auth/register')
+        .send({ phone: '13600000002', username: 'test', password: '123456' });
+      expect(res.status).toBe(500);
+    });
+  });
 });

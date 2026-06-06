@@ -374,6 +374,8 @@ public class clubterm extends AppCompatActivity {
                         mainHandler.post(() -> {
                             updateButtonUI(currentStatus);
                             if (currentStatus) {
+                                Toast.makeText(clubterm.this, "Welcome to the club!", Toast.LENGTH_SHORT).show();
+                                // 加入成功 → 跳转到社区动态页面
                                 Intent intent = new Intent(clubterm.this, ClubCommunityActivity.class);
                                 intent.putExtra("CLUB_ID", clubId);
                                 startActivity(intent);
