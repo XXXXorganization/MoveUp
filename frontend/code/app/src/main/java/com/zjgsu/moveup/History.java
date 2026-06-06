@@ -38,7 +38,7 @@ import java.util.Locale;
 
 public class History extends AppCompatActivity {
 
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://192.168.25.47:3000";
 
     private RecyclerView list;
     private HistoryAdapter adapter;
@@ -47,7 +47,6 @@ public class History extends AppCompatActivity {
 
     private String currentUserId;
 
-    // 绑定顶部的统计视图
     private TextView totalKmValue;
     private TextView summaryRunValue;
     private TextView summaryPaceValue;
@@ -93,7 +92,6 @@ public class History extends AppCompatActivity {
 
         setupMenuClicks();
 
-        // 获取数据并由前端负责汇总计算
         fetchHistoryData();
     }
 
@@ -108,32 +106,34 @@ public class History extends AppCompatActivity {
             startActivity(new Intent(History.this, Main.class));
             finish();
         });
-
         if (menuHistory != null) menuHistory.setOnClickListener(v -> {
             if (drawerLayout != null) drawerLayout.closeDrawers();
         });
-
         if (menuPlan != null) menuPlan.setOnClickListener(v -> {
             startActivity(new Intent(History.this, Plan.class));
             finish();
         });
-
         if (menuClub != null) menuClub.setOnClickListener(v -> {
             startActivity(new Intent(History.this, Find.class));
             finish();
         });
-
         if (menuProfile != null) menuProfile.setOnClickListener(v -> {
             startActivity(new Intent(History.this, Mine.class));
             finish();
         });
     }
 
+    // ------------------- fetchHistoryData -------------------
     private void fetchHistoryData() {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/runs";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/runs");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -150,20 +150,16 @@ public class History extends AppCompatActivity {
                 ));
                 StringBuilder sb = new StringBuilder();
                 String line;
-                while ((line = reader.readLine()) != null) {
-                    sb.append(line);
-                }
+                while ((line = reader.readLine()) != null) sb.append(line);
                 reader.close();
 
                 if (httpCode == 200) {
                     JSONObject resp = new JSONObject(sb.toString());
                     if (resp.optInt("code") == 200) {
+                        success = true;
                         JSONObject data = resp.getJSONObject("data");
                         JSONArray listArray = data.optJSONArray("list");
 
-                        // ==========================================
-                        // 🌟 核心修复：线程安全的数据构建
-                        // ==========================================
                         List<HistoryRun> tempRuns = new ArrayList<>();
                         double totalDistanceKm = 0.0;
                         long totalTimeMs = 0;
@@ -173,7 +169,6 @@ public class History extends AppCompatActivity {
                             totalRunsCount = listArray.length();
                             for (int i = 0; i < totalRunsCount; i++) {
                                 JSONObject obj = listArray.getJSONObject(i);
-
                                 String id = obj.optString("id", "run_" + i);
                                 String date = obj.optString("date", "未知时间");
                                 String title = obj.optString("title", "Outdoor Run");
@@ -181,34 +176,22 @@ public class History extends AppCompatActivity {
                                 String pace = obj.optString("pace", "0'00\"");
                                 String distanceStr = obj.optString("distance", "0.00 Km");
 
-                                // 放入临时列表，不直接操作 UI 绑定的 runList
                                 tempRuns.add(new HistoryRun(id, date, title, durationStr, pace, distanceStr));
 
-                                // 1. 累加每一次的距离
                                 try {
                                     String cleanDist = distanceStr.replace(" Km", "").trim();
                                     totalDistanceKm += Double.parseDouble(cleanDist);
                                 } catch (Exception ignored) {}
-
-                                // 2. 累加每一次的时间 (转换为毫秒)
                                 totalTimeMs += parseDurationToMs(durationStr);
                             }
                         }
 
-                        // ==========================================
-                        // 🌟 格式化汇总数据
-                        // ==========================================
-                        // 总距离和总次数
                         final String finalTotalKm = String.format(Locale.US, "%.2f", totalDistanceKm);
                         final String finalRunCount = String.valueOf(totalRunsCount);
-
-                        // 总时间 (完全按照要求： 分:秒:毫秒 格式，如 105:30:500)
                         long totalMilliRemainder = totalTimeMs % 1000;
                         long totalSec = (totalTimeMs / 1000) % 60;
                         long totalMin = (totalTimeMs / 60000);
                         final String finalTotalTime = String.format(Locale.US, "%02d:%02d:%03d", totalMin, totalSec, totalMilliRemainder);
-
-                        // 平均配速 (通过总时间/总距离计算)
                         String tempAvgPace = "0'00\"";
                         if (totalDistanceKm >= 0.01) {
                             long totalSecForPace = totalTimeMs / 1000;
@@ -219,36 +202,31 @@ public class History extends AppCompatActivity {
                         }
                         final String finalAvgPace = tempAvgPace;
 
-                        // 🌟 最后一步：切回主线程安全更新界面
                         mainHandler.post(() -> {
-                            runList.clear();           // 安全清空旧数据
-                            runList.addAll(tempRuns);  // 添加重新计算好的新数据
-
+                            runList.clear();
+                            runList.addAll(tempRuns);
                             totalKmValue.setText(finalTotalKm);
                             summaryRunValue.setText(finalRunCount);
-                            summaryTimeValue.setText(finalTotalTime); // 分:秒:毫秒
+                            summaryTimeValue.setText(finalTotalTime);
                             summaryPaceValue.setText(finalAvgPace);
-
-                            adapter.notifyDataSetChanged(); // 刷新列表
+                            adapter.notifyDataSetChanged();
                         });
                     }
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "拉取历史数据异常", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
     }
 
-    /**
-     * 将格式为 "MM:SS.ms" (跑步页面产生的格式) 或 "MM.SS" (Mock假数据) 统一精确解析为毫秒
-     */
     private long parseDurationToMs(String durationStr) {
         long ms = 0;
         try {
             if (durationStr.contains(":")) {
-                // 处理真实跑步数据 "05:30.50" 格式
                 String[] parts = durationStr.split(":");
                 long min = Long.parseLong(parts[0].trim());
                 String[] secParts = parts[1].split("\\.");
@@ -256,12 +234,10 @@ public class History extends AppCompatActivity {
                 long milli = 0;
                 if (secParts.length > 1) {
                     String fraction = secParts[1].trim();
-                    // 如果是两位数(百分秒)则乘以10转毫秒；三位数直接当毫秒
                     milli = fraction.length() == 2 ? Long.parseLong(fraction) * 10 : Long.parseLong(fraction);
                 }
                 ms = (min * 60 * 1000) + (sec * 1000) + milli;
             } else if (durationStr.contains(".")) {
-                // 兼容处理后端假数据 "25.30" (25分钟30秒) 这种格式
                 String[] parts = durationStr.split("\\.");
                 long min = Long.parseLong(parts[0].trim());
                 long sec = parts.length > 1 ? Long.parseLong(parts[1].trim()) : 0;
@@ -282,11 +258,18 @@ public class History extends AppCompatActivity {
                 .show();
     }
 
+    // ------------------- fetchMyClubsAndShowDialog -------------------
     private void fetchMyClubsAndShowDialog(HistoryRun run) {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            String urlStr = BASE_URL + "/v1/user/clubs";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/user/clubs");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
                 String token = prefs.getString("jwt", "");
@@ -294,7 +277,9 @@ public class History extends AppCompatActivity {
                     conn.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (conn.getResponseCode() == 200) {
+                int httpCode = conn.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                     JSONObject res = new JSONObject(br.readLine());
                     JSONArray list = res.getJSONObject("data").getJSONArray("list");
@@ -315,7 +300,11 @@ public class History extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "获取用户社团失败", e);
+                success = false;
                 mainHandler.post(() -> Toast.makeText(History.this, "Network Error", Toast.LENGTH_SHORT).show());
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
@@ -325,12 +314,10 @@ public class History extends AppCompatActivity {
             Toast.makeText(this, "You haven't joined any clubs yet.", Toast.LENGTH_SHORT).show();
             return;
         }
-
         String[] clubNames = new String[myClubs.size()];
         for (int i = 0; i < myClubs.size(); i++) {
             clubNames[i] = myClubs.get(i).name;
         }
-
         new AlertDialog.Builder(this)
                 .setTitle("Select a Club to Share")
                 .setItems(clubNames, (dialog, which) -> {
@@ -345,7 +332,6 @@ public class History extends AppCompatActivity {
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.setMargins(60, 20, 60, 20);
-
         EditText input = new EditText(this);
         input.setHint("Write something about this run...");
         input.setLayoutParams(params);
@@ -362,11 +348,18 @@ public class History extends AppCompatActivity {
                 .show();
     }
 
+    // ------------------- uploadSharePost -------------------
     private void uploadSharePost(HistoryRun run, Club club, String content) {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            String urlStr = BASE_URL + "/v1/clubs/" + club.id + "/posts";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs/" + club.id + "/posts");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setDoOutput(true);
@@ -385,12 +378,18 @@ public class History extends AppCompatActivity {
                 os.write(body.toString().getBytes("UTF-8"));
                 os.close();
 
-                if (conn.getResponseCode() == 200) {
+                int httpCode = conn.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     mainHandler.post(() -> Toast.makeText(History.this, "Shared successfully to " + club.name, Toast.LENGTH_SHORT).show());
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "上传分享帖子失败", e);
+                success = false;
                 mainHandler.post(() -> Toast.makeText(History.this, "Share Failed", Toast.LENGTH_SHORT).show());
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }

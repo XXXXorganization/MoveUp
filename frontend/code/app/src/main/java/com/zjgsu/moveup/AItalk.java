@@ -28,8 +28,7 @@ import java.nio.charset.StandardCharsets;
 
 public class AItalk extends AppCompatActivity {
 
-    // 🌟 核心修改：改为 public static 方便测试拦截
-    public static String BASE_URL = "http://10.0.2.2:3000/v1/ai/chat";
+    public static String BASE_URL = "http://192.168.25.47:3000/v1/ai/chat";
 
     private LinearLayout chatContainer;
     private ScrollView chatScrollView;
@@ -117,6 +116,11 @@ public class AItalk extends AppCompatActivity {
 
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL;   // 完整 URL
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
                 JSONObject userMsgObj = new JSONObject();
                 userMsgObj.put("role", "user");
@@ -126,8 +130,7 @@ public class AItalk extends AppCompatActivity {
                 JSONObject requestBody = new JSONObject();
                 requestBody.put("chat_history", chatHistory);
 
-                // 🌟 使用动态拼接的 URL
-                URL url = new URL(BASE_URL);
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
@@ -145,9 +148,9 @@ public class AItalk extends AppCompatActivity {
                     os.write(bytes);
                 }
 
-                int code = connection.getResponseCode();
+                int httpCode = connection.getResponseCode();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(
-                        code >= 200 && code < 300 ? connection.getInputStream() : connection.getErrorStream(),
+                        httpCode >= 200 && httpCode < 300 ? connection.getInputStream() : connection.getErrorStream(),
                         StandardCharsets.UTF_8));
 
                 StringBuilder sb = new StringBuilder();
@@ -158,46 +161,52 @@ public class AItalk extends AppCompatActivity {
                 reader.close();
                 String responseStr = sb.toString();
 
-                mainHandler.post(() -> {
-                    chatContainer.removeView(loadingTv);
+                if (httpCode == 200) {
+                    try {
+                        JSONObject respJson = new JSONObject(responseStr);
+                        if (respJson.optInt("code") == 200) {
+                            success = true;
+                            String aiReply = respJson.getJSONObject("data").getString("reply");
 
-                    if (code == 200) {
-                        try {
-                            JSONObject respJson = new JSONObject(responseStr);
-                            if (respJson.optInt("code") == 200) {
-                                String aiReply = respJson.getJSONObject("data").getString("reply");
+                            JSONObject modelMsgObj = new JSONObject();
+                            modelMsgObj.put("role", "assistant");
+                            modelMsgObj.put("content", aiReply);
+                            chatHistory.put(modelMsgObj);
 
-                                JSONObject modelMsgObj = new JSONObject();
-                                modelMsgObj.put("role", "assistant");
-                                modelMsgObj.put("content", aiReply);
-                                chatHistory.put(modelMsgObj);
-
-                                addMessageBubble("AI", aiReply);
-                            } else {
-                                addMessageBubble("系统", "后端报错: " + respJson.optString("message"));
-                                chatHistory.remove(chatHistory.length() - 1);
-                            }
-                        } catch (Exception e) {
-                            addMessageBubble("系统", "解析后端数据失败: " + e.getMessage());
+                            final String finalReply = aiReply;
+                            mainHandler.post(() -> addMessageBubble("AI", finalReply));
+                        } else {
+                            mainHandler.post(() -> addMessageBubble("系统", "后端报错: " + respJson.optString("message")));
+                            chatHistory.remove(chatHistory.length() - 1);
                         }
-                    } else {
-                        Log.e("AItalk", "Backend failed: " + responseStr);
-                        addMessageBubble("系统", "连接后端失败 (HTTP " + code + ")");
-                        chatHistory.remove(chatHistory.length() - 1);
+                    } catch (Exception e) {
+                        mainHandler.post(() -> addMessageBubble("系统", "解析后端数据失败: " + e.getMessage()));
                     }
-                });
+                } else {
+                    Log.e("AItalk", "Backend failed: " + responseStr);
+                    mainHandler.post(() -> addMessageBubble("系统", "连接后端失败 (HTTP " + httpCode + ")"));
+                    chatHistory.remove(chatHistory.length() - 1);
+                }
 
             } catch (Exception e) {
                 Log.e("AItalk", "Network Error", e);
+                success = false;
                 mainHandler.post(() -> {
                     chatContainer.removeView(loadingTv);
                     addMessageBubble("系统", "网络连接异常: \n" + e.getMessage());
                 });
                 chatHistory.remove(chatHistory.length() - 1);
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) {
                     connection.disconnect();
                 }
+                // 无论成功与否，移除加载提示（仅当尚未被移除时）
+                mainHandler.post(() -> {
+                    if (loadingTv.getParent() != null) {
+                        chatContainer.removeView(loadingTv);
+                    }
+                });
             }
         }).start();
     }

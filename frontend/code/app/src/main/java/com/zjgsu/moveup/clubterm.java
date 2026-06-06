@@ -38,21 +38,18 @@ import java.util.List;
 
 public class clubterm extends AppCompatActivity {
 
-    // 🌟 新增：暴露 BASE_URL 供测试修改
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://192.168.25.47:3000";
 
     private String clubId;
     private String currentUserId;
     private boolean isJoined = false;
 
-    private ImageView clubHeroImage; // 🌟 绑定顶部大图
+    private ImageView clubHeroImage;
     private TextView tvClubName;
     private TextView tvClubLocation;
     private MaterialButton btnJoin;
 
-    // DrawerLayout 引用
     private DrawerLayout drawerLayout;
-
     private Handler mainHandler;
 
     @Override
@@ -61,7 +58,6 @@ public class clubterm extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_clubterm);
 
-        // 初始化 DrawerLayout
         drawerLayout = findViewById(R.id.drawerLayout);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -72,7 +68,6 @@ public class clubterm extends AppCompatActivity {
 
         mainHandler = new Handler(Looper.getMainLooper());
 
-        // 🌟 绑定视图
         clubHeroImage = findViewById(R.id.clubHeroImage);
         tvClubName = findViewById(R.id.tvClubName);
         tvClubLocation = findViewById(R.id.tvClubLocation);
@@ -87,7 +82,6 @@ public class clubterm extends AppCompatActivity {
         fetchClubDetails();
         btnJoin.setOnClickListener(v -> {
             if (isJoined) {
-                // 已加入 → 进入社区
                 Intent intent = new Intent(clubterm.this, ClubCommunityActivity.class);
                 intent.putExtra("CLUB_ID", clubId);
                 startActivity(intent);
@@ -96,17 +90,13 @@ public class clubterm extends AppCompatActivity {
             }
         });
 
-        // 为按钮添加展开侧滑菜单的点击事件
         findViewById(R.id.btnMenu).setOnClickListener(v -> {
             if (drawerLayout != null) {
-                // 使用 GravityCompat.START 从屏幕左侧划出菜单
                 drawerLayout.openDrawer(GravityCompat.START);
             }
         });
 
-        // ================= 绑定侧滑菜单的点击跳转逻辑 =================
         setupMenuClicks();
-        // =============================================================
 
         RecyclerView recycler = findViewById(R.id.recyclerPosts);
         recycler.setLayoutManager(new LinearLayoutManager(this));
@@ -120,42 +110,40 @@ public class clubterm extends AppCompatActivity {
         TextView menuClub = findViewById(R.id.menu_club);
         TextView menuProfile = findViewById(R.id.menu_profile);
 
-        // Home → 跳转回主页
         if (menuHome != null) menuHome.setOnClickListener(v -> {
             startActivity(new Intent(clubterm.this, Main.class));
             finish();
         });
-
-        // History
         if (menuHistory != null) menuHistory.setOnClickListener(v -> {
             startActivity(new Intent(clubterm.this, History.class));
             finish();
         });
-
-        // Plan
         if (menuPlan != null) menuPlan.setOnClickListener(v -> {
             startActivity(new Intent(clubterm.this, Plan.class));
             finish();
         });
-
-        // Club → 跳转到社团发现页
         if (menuClub != null) menuClub.setOnClickListener(v -> {
             startActivity(new Intent(clubterm.this, Find.class));
             finish();
         });
-
-        // Profile → Mine
         if (menuProfile != null) menuProfile.setOnClickListener(v -> {
             startActivity(new Intent(clubterm.this, Mine.class));
             finish();
         });
     }
 
+    // ------------------- fetchClubPosts -------------------
     private void fetchClubPosts() {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            String urlStr = BASE_URL + "/v1/clubs/" + clubId + "/posts";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/posts");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
                 String token = prefs.getString("jwt", "");
@@ -163,7 +151,9 @@ public class clubterm extends AppCompatActivity {
                     conn.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (conn.getResponseCode() == 200) {
+                int httpCode = conn.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                     JSONObject res = new JSONObject(br.readLine());
                     JSONArray list = res.getJSONObject("data").getJSONArray("list");
@@ -171,12 +161,10 @@ public class clubterm extends AppCompatActivity {
                     List<ClubTermPost> postList = new ArrayList<>();
                     for (int i = 0; i < list.length(); i++) {
                         JSONObject p = list.getJSONObject(i);
-
-                        // 解析 comments
                         JSONArray cmts = p.optJSONArray("comments");
                         List<ClubComment> cList = new ArrayList<>();
-                        if(cmts != null) {
-                            for(int j=0; j<cmts.length(); j++){
+                        if (cmts != null) {
+                            for (int j = 0; j < cmts.length(); j++) {
                                 JSONObject c = cmts.getJSONObject(j);
                                 String commentAuthor = "Unknown";
                                 JSONObject commentAuthorObj = c.optJSONObject("author");
@@ -189,7 +177,7 @@ public class clubterm extends AppCompatActivity {
                                         c.optString("content", ""),
                                         c.optString("created_at", ""),
                                         c.optString("reply_to_id", null),
-                                        "" // reply_to_name not available
+                                        ""
                                 ));
                             }
                         }
@@ -201,7 +189,6 @@ public class clubterm extends AppCompatActivity {
                         }
                         int commentsCount = cmts != null ? cmts.length() : 0;
 
-                        // 解析图片列表
                         List<String> imageList = null;
                         JSONArray imgArr = p.optJSONArray("images");
                         if (imgArr != null && imgArr.length() > 0) {
@@ -211,7 +198,6 @@ public class clubterm extends AppCompatActivity {
                             }
                         }
 
-                        // 解析跑步记录摘要
                         String runDist = "", runDur = "", runPace = "";
                         boolean hasRun = false;
                         JSONObject runSum = p.optJSONObject("run_summary");
@@ -252,13 +238,18 @@ public class clubterm extends AppCompatActivity {
                         postList.add(ctp);
                     }
 
+                    final List<ClubTermPost> finalPostList = postList;
                     mainHandler.post(() -> {
                         RecyclerView recycler = findViewById(R.id.recyclerPosts);
-                        recycler.setAdapter(new ClubTermPostAdapter(postList, currentUserId));
+                        recycler.setAdapter(new ClubTermPostAdapter(finalPostList, currentUserId));
                     });
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "Fetch posts error", e);
+                success = false;
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
@@ -266,7 +257,6 @@ public class clubterm extends AppCompatActivity {
     private void showConfirmDialog() {
         String title = isJoined ? "Exit Club" : "Join Club";
         String message = isJoined ? "Are you sure you want to exit this club?" : "Are you sure you want to join this club?";
-
         new AlertDialog.Builder(this)
                 .setTitle(title)
                 .setMessage(message)
@@ -275,11 +265,17 @@ public class clubterm extends AppCompatActivity {
                 .show();
     }
 
+    // ------------------- fetchClubDetails -------------------
     private void fetchClubDetails() {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/clubs/" + clubId;
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId);
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -289,7 +285,9 @@ public class clubterm extends AppCompatActivity {
                     connection.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -302,21 +300,18 @@ public class clubterm extends AppCompatActivity {
                         final String name = data.optString("name");
                         final String location = data.optString("location");
                         final boolean joined = data.optBoolean("is_member", false);
-                        // 🌟 解析获取后端返回的图片 URL
                         final String imageUrl = data.optString("image_url", "");
 
                         mainHandler.post(() -> {
                             tvClubName.setText(name);
                             tvClubLocation.setText(location);
                             updateButtonUI(joined);
-
-                            // 🌟 使用 Glide 加载图片到顶部的 ImageView
                             if (!imageUrl.isEmpty() && clubHeroImage != null) {
                                 Glide.with(clubterm.this)
                                         .load(imageUrl)
                                         .centerCrop()
-                                        .placeholder(R.drawable.term1) // XML中默认的占位图
-                                        .error(R.drawable.term1)       // 加载失败时使用默认图
+                                        .placeholder(R.drawable.term1)
+                                        .error(R.drawable.term1)
                                         .into(clubHeroImage);
                             }
                         });
@@ -324,17 +319,25 @@ public class clubterm extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "获取社团详情失败", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
     }
 
+    // ------------------- toggleJoinStatus -------------------
     private void toggleJoinStatus() {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/clubs/" + clubId + "/toggle";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs/" + clubId + "/toggle");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setConnectTimeout(5000);
@@ -354,7 +357,8 @@ public class clubterm extends AppCompatActivity {
                 os.flush();
                 os.close();
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -365,6 +369,7 @@ public class clubterm extends AppCompatActivity {
                     if (resp.optInt("code") == 200) {
                         JSONObject data = resp.getJSONObject("data");
                         final boolean currentStatus = data.optBoolean("joined");
+                        success = true;
 
                         mainHandler.post(() -> {
                             updateButtonUI(currentStatus);
@@ -375,14 +380,17 @@ public class clubterm extends AppCompatActivity {
                                 intent.putExtra("CLUB_ID", clubId);
                                 startActivity(intent);
                             } else {
-                                Toast.makeText(this, "Successfully Exited!", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(clubterm.this, "Successfully Exited!", Toast.LENGTH_SHORT).show();
                             }
                         });
                     }
                 }
             } catch (Exception e) {
-                mainHandler.post(() -> Toast.makeText(this, "Network Error", Toast.LENGTH_SHORT).show());
+                Log.e("API_TEST", "Toggle join error", e);
+                success = false;
+                mainHandler.post(() -> Toast.makeText(clubterm.this, "Network Error", Toast.LENGTH_SHORT).show());
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();

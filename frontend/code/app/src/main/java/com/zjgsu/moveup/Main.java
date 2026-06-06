@@ -11,7 +11,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -32,17 +31,14 @@ import java.util.List;
 
 public class Main extends AppCompatActivity {
 
-    // 🌟 暴露 BASE_URL 供测试动态拦截
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://192.168.25.47:3000";
 
     private DrawerLayout drawerLayout;
     private Handler mainHandler;
 
-    // 绑定布局中的两个 activityCard
     private View activityCard1;
     private View activityCard2;
 
-    // 动态社团列表
     private List<Club> dynamicClubList;
     private ClubAdapter clubAdapter;
 
@@ -60,57 +56,45 @@ public class Main extends AppCompatActivity {
 
         mainHandler = new Handler(Looper.getMainLooper());
 
-        // 抽屉菜单
         drawerLayout = findViewById(R.id.drawerLayout);
         findViewById(R.id.btnMenu).setOnClickListener(v -> {
             drawerLayout.openDrawer(findViewById(R.id.drawerMenu));
         });
 
-        // 菜单点击
         setupMenuClicks();
 
-        // 跑步跳转
         ImageView ivStart = findViewById(R.id.ivStart);
         ivStart.setOnClickListener(v -> {
             Intent intent = new Intent(Main.this, Runing.class);
             startActivity(intent);
         });
 
-        // See All 跳转到 Find 界面
         TextView btnSeeAllClubs = findViewById(R.id.btnSeeAllClubs);
         btnSeeAllClubs.setOnClickListener(v -> {
             Intent intent = new Intent(Main.this, Find.class);
             startActivity(intent);
         });
 
-        // 🌟 核心修改：初始化适配器并从后端动态加载列表
         RecyclerView recyclerClubs = findViewById(R.id.recyclerClubs);
-        recyclerClubs.setLayoutManager(
-                new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        recyclerClubs.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
 
         dynamicClubList = new ArrayList<>();
         clubAdapter = new ClubAdapter(dynamicClubList);
         recyclerClubs.setAdapter(clubAdapter);
 
-        // 🚀 核心逻辑：从后端拉取社团数据，彻底告别写死的假数据
         fetchClubs();
 
-        // 动态获取最新的跑步历史数据
         activityCard1 = findViewById(R.id.activityCard1);
         activityCard2 = findViewById(R.id.activityCard2);
 
-        // 从缓存中获取当前登录的用户ID
         SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
         String currentUserId = prefs.getString("user_phone", "13800138000");
 
-        // 向后端拉取数据
         fetchLatestActivities(currentUserId);
 
-         //召唤 AI 悬浮球 (如果你的项目中包含此管理器)
-         AIFloatManager.addFloat(this);
+        AIFloatManager.addFloat(this);
     }
 
-    // 生命周期：当完成跑步等操作返回主页时刷新数据
     @Override
     protected void onResume() {
         super.onResume();
@@ -119,14 +103,17 @@ public class Main extends AppCompatActivity {
         fetchLatestActivities(currentUserId);
     }
 
-    /**
-     * 🌟 新增：发送 GET 请求拉取线上的社团列表
-     */
+    // ------------------- fetchClubs -------------------
     private void fetchClubs() {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/clubs";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/clubs");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -136,7 +123,8 @@ public class Main extends AppCompatActivity {
                     connection.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -145,6 +133,7 @@ public class Main extends AppCompatActivity {
 
                     JSONObject resp = new JSONObject(sb.toString());
                     if (resp.optInt("code") == 200) {
+                        success = true;
                         JSONObject data = resp.getJSONObject("data");
                         JSONArray listArray = data.optJSONArray("list");
 
@@ -152,20 +141,15 @@ public class Main extends AppCompatActivity {
                         if (listArray != null) {
                             for (int i = 0; i < listArray.length(); i++) {
                                 JSONObject obj = listArray.getJSONObject(i);
-
                                 String id = obj.optString("id", "");
                                 String name = obj.optString("name");
                                 String location = obj.optString("location");
                                 String flag = obj.optString("flag", "🇨🇳");
-                                // 🌟 关键：读取后端新提供的图片链接
                                 String imageUrl = obj.optString("image_url", "");
-
-                                // 使用 5 个参数的新构造函数
                                 tempNewList.add(new Club(id, name, location, imageUrl, flag));
                             }
                         }
 
-                        // 切回主线程刷新界面
                         mainHandler.post(() -> {
                             dynamicClubList.clear();
                             dynamicClubList.addAll(tempNewList);
@@ -175,20 +159,25 @@ public class Main extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "获取主页社团列表异常", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
     }
 
-    /**
-     * 发送 GET 请求拉取该用户的跑步记录
-     */
+    // ------------------- fetchLatestActivities -------------------
     private void fetchLatestActivities(String userId) {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/runs";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/runs");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -198,7 +187,8 @@ public class Main extends AppCompatActivity {
                     connection.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -207,6 +197,7 @@ public class Main extends AppCompatActivity {
 
                     JSONObject resp = new JSONObject(sb.toString());
                     if (resp.optInt("code") == 200) {
+                        success = true;
                         JSONObject data = resp.getJSONObject("data");
                         JSONArray listArray = data.optJSONArray("list");
 
@@ -214,7 +205,6 @@ public class Main extends AppCompatActivity {
                             if (listArray != null && listArray.length() > 0) {
                                 bindCardData(activityCard1, listArray.optJSONObject(0));
                                 activityCard1.setVisibility(View.VISIBLE);
-
                                 if (listArray.length() > 1) {
                                     bindCardData(activityCard2, listArray.optJSONObject(1));
                                     activityCard2.setVisibility(View.VISIBLE);
@@ -230,7 +220,9 @@ public class Main extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "获取最新活动异常", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
@@ -238,13 +230,11 @@ public class Main extends AppCompatActivity {
 
     private void bindCardData(View cardView, JSONObject runData) {
         if (runData == null || cardView == null) return;
-
         TextView tvTitle = cardView.findViewById(R.id.activityTitle);
         TextView tvDate = cardView.findViewById(R.id.activityDate);
         TextView tvDistance = cardView.findViewById(R.id.distanceValue);
         TextView tvTime = cardView.findViewById(R.id.timeValue);
         TextView tvPace = cardView.findViewById(R.id.paceValue);
-
         if (tvTitle != null) tvTitle.setText(runData.optString("title", "Running"));
         if (tvDate != null) tvDate.setText(runData.optString("date", "未知时间"));
         if (tvDistance != null) tvDistance.setText(runData.optString("distance", "0.00 Km"));
@@ -260,22 +250,18 @@ public class Main extends AppCompatActivity {
         TextView menuProfile = findViewById(R.id.menu_profile);
 
         if (menuHome != null) menuHome.setOnClickListener(v -> drawerLayout.closeDrawers());
-
         if (menuHistory != null) menuHistory.setOnClickListener(v -> {
             startActivity(new Intent(Main.this, History.class));
             finish();
         });
-
         if (menuPlan != null) menuPlan.setOnClickListener(v -> {
             startActivity(new Intent(Main.this, Plan.class));
             finish();
         });
-
         if (menuClub != null) menuClub.setOnClickListener(v -> {
             startActivity(new Intent(Main.this, Find.class));
             finish();
         });
-
         if (menuProfile != null) menuProfile.setOnClickListener(v -> {
             startActivity(new Intent(Main.this, Mine.class));
             finish();

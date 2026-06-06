@@ -68,7 +68,7 @@ import java.util.TimeZone;
 public class Runing extends AppCompatActivity implements AMapLocationListener {
 
     private static final String TAG = "RuningAPI";
-    public static String BASE_URL = "http://10.0.2.2:3000/v1";
+    public static String BASE_URL = "http://192.168.25.47:3000/v1";
 
     private static final String PREFS_AUTH = "moveup_auth";
     private static final String KEY_JWT = "jwt";
@@ -433,11 +433,17 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         rootView.addView(fabVoice);
     }
 
+    // ------------------- askAI (with MetricsCollector) -------------------
     private void askAI(String userSpeech) {
         voiceCoach.cancelListening(); // 请求期间关麦
 
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/ai/chat";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
                 String contextPrompt = String.format(Locale.CHINA,
                         "我正在跑步。当前已跑: %s Km，配速: %s，消耗: %s 千卡，当前位置: %s。请搜索我周围1公里以内的景点或地标，告诉我距离多远、跑步过去要几分钟、怎么跑过去。60字以内。我对你说: '%s'",
@@ -453,7 +459,7 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 JSONObject requestBody = new JSONObject();
                 requestBody.put("chat_history", chatHistory);
 
-                URL url = new URL(BASE_URL + "/ai/chat");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
@@ -479,6 +485,7 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
 
                     JSONObject respJson = new JSONObject(sb.toString());
                     if (respJson.optInt("code") == 200) {
+                        success = true;
                         String aiReply = respJson.getJSONObject("data").getString("reply");
                         Log.d(TAG, "AI reply received: " + aiReply);
                         mainHandler.post(() -> {
@@ -488,8 +495,11 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                     }
                 }
             } catch (Exception e) {
+                Log.e(TAG, "askAI error", e);
+                success = false;
                 mainHandler.post(() -> voiceCoach.speak("网络信号不好，请按自己的节奏继续跑！"));
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
@@ -709,11 +719,17 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         postRunFinish();
     }
 
+    // ------------------- postRunFinish (with MetricsCollector) -------------------
     private void postRunFinish() {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/runs/finish";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/runs/finish");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setConnectTimeout(8000);
@@ -739,24 +755,33 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
 
                 int code = connection.getResponseCode();
                 if (code == 200) {
+                    success = true;
                     Log.d(TAG, "跑步数据已成功上传并保存到历史记录");
                 }
             } catch (Exception e) {
                 Log.e(TAG, "上传跑步总结失败", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
     }
 
+    // ------------------- postRunsStart (with MetricsCollector) -------------------
     private void postRunsStart() {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/runs/start";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
                 JSONObject body = new JSONObject();
                 body.put("run_type", "outdoor");
 
-                URL url = new URL(BASE_URL + "/runs/start");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setConnectTimeout(8000);
@@ -785,6 +810,7 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 reader.close();
 
                 if (code == 200) {
+                    success = true;
                     JSONObject resp = new JSONObject(sb.toString());
                     JSONObject data = resp.optJSONObject("data");
                     if (data != null) {
@@ -794,7 +820,9 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 }
             } catch (Exception e) {
                 Log.e(TAG, "runs/start failed", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
@@ -812,6 +840,7 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
         mainHandler.postDelayed(uploadRunnable, 12000);
     }
 
+    // ------------------- flushPointsUpload (with MetricsCollector) -------------------
     private void flushPointsUpload() {
         if (runId == null || runId.isEmpty()) return;
         final ArrayList<JSONObject> batch = new ArrayList<>();
@@ -823,13 +852,18 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
 
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/runs/" + runId + "/points";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
                 JSONObject body = new JSONObject();
                 JSONArray arr = new JSONArray();
                 for (JSONObject p : batch) arr.put(p);
                 body.put("points", arr);
 
-                URL url = new URL(BASE_URL + "/runs/" + runId + "/points");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setConnectTimeout(8000);
@@ -842,10 +876,16 @@ public class Runing extends AppCompatActivity implements AMapLocationListener {
                 OutputStream os = connection.getOutputStream();
                 os.write(body.toString().getBytes(StandardCharsets.UTF_8));
                 os.close();
-                connection.getResponseCode();
+
+                int code = connection.getResponseCode();
+                if (code == 200 || code == 204) {
+                    success = true;
+                }
             } catch (Exception e) {
                 Log.e(TAG, "upload points failed", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();

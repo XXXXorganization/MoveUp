@@ -42,8 +42,7 @@ import java.util.Locale;
 
 public class Plan_details extends AppCompatActivity {
 
-    // 🌟 新增：暴露 BASE_URL 供测试修改
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://192.168.25.47:3000";
 
     private Handler mainHandler;
     private RecyclerView recyclerView;
@@ -83,18 +82,11 @@ public class Plan_details extends AppCompatActivity {
         adapter = new PlanDetailAdapter(planList);
         recyclerView.setAdapter(adapter);
 
-        adapter.setOnItemLongClickListener(position -> {
-            showDeleteConfirmDialog(position);
-        });
-
-        adapter.setOnItemCheckListener(position -> {
-            toggleItemComplete(position);
-        });
+        adapter.setOnItemLongClickListener(position -> showDeleteConfirmDialog(position));
+        adapter.setOnItemCheckListener(position -> toggleItemComplete(position));
 
         FloatingActionButton fabAdd = findViewById(R.id.fabAddPlan);
-        fabAdd.setOnClickListener(v -> {
-            showAddPlanDialog();
-        });
+        fabAdd.setOnClickListener(v -> showAddPlanDialog());
 
         SharedPreferences prefs = getSharedPreferences("moveup_auth", MODE_PRIVATE);
         currentUserId = prefs.getString("user_phone", "13800138000");
@@ -106,7 +98,6 @@ public class Plan_details extends AppCompatActivity {
         Calendar calendar = Calendar.getInstance();
         int currentHour = calendar.get(Calendar.HOUR_OF_DAY);
         int currentMinute = calendar.get(Calendar.MINUTE);
-
         TimePickerDialog timePickerDialog = new TimePickerDialog(this,
                 (view, hourOfDay, minute) -> {
                     Calendar time = Calendar.getInstance();
@@ -116,7 +107,6 @@ public class Plan_details extends AppCompatActivity {
                     targetTextView.setText(sdf.format(time.getTime()));
                     targetTextView.setTextColor(Color.BLACK);
                 }, currentHour, currentMinute, false);
-
         timePickerDialog.show();
     }
 
@@ -153,23 +143,14 @@ public class Plan_details extends AppCompatActivity {
             String start = tvStartTime.getText().toString().trim();
             String end = tvEndTime.getText().toString().trim();
             String distance = etDistance.getText().toString().trim();
-
             if (start.isEmpty() || start.contains("Tap to select") || distance.isEmpty()) {
-                Toast.makeText(this, "Please enter start time and distance", Toast.LENGTH_SHORT).show();
+                Toast.makeText(Plan_details.this, "Please enter start time and distance", Toast.LENGTH_SHORT).show();
                 return;
             }
-
-            if (!distance.toLowerCase().contains("km")) {
-                distance = distance + " Km";
-            }
-
-            if (end.contains("Tap to select")) {
-                end = "";
-            }
-
+            if (!distance.toLowerCase().contains("km")) distance = distance + " Km";
+            if (end.contains("Tap to select")) end = "";
             addPlanToServer(start, end, distance);
         });
-
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
         builder.show();
     }
@@ -178,20 +159,22 @@ public class Plan_details extends AppCompatActivity {
         new AlertDialog.Builder(this)
                 .setTitle("Delete Plan")
                 .setMessage("Are you sure you want to delete this plan?")
-                .setPositiveButton("Delete", (dialog, which) -> {
-                    deletePlanFromServer(position);
-                })
+                .setPositiveButton("Delete", (dialog, which) -> deletePlanFromServer(position))
                 .setNegativeButton("Cancel", null)
                 .show();
     }
 
+    // ------------------- fetchPlanDetails -------------------
     private void fetchPlanDetails() {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/plan/details?day=" + targetDay;
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                // 🌟 修改点：动态拼接 BASE_URL
-                String urlString = BASE_URL + "/v1/plan/details?day=" + targetDay;
-                URL url = new URL(urlString);
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -201,7 +184,8 @@ public class Plan_details extends AppCompatActivity {
                     connection.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -210,6 +194,7 @@ public class Plan_details extends AppCompatActivity {
 
                     JSONObject resp = new JSONObject(sb.toString());
                     if (resp.optInt("code") == 200) {
+                        success = true;
                         JSONObject data = resp.getJSONObject("data");
                         JSONArray listArray = data.optJSONArray("list");
 
@@ -229,18 +214,25 @@ public class Plan_details extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "获取计划异常", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
     }
 
+    // ------------------- addPlanToServer -------------------
     private void addPlanToServer(String startTime, String endTime, String distance) {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/plan/details";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                // 🌟 修改点：动态拼接 BASE_URL
-                URL url = new URL(BASE_URL + "/v1/plan/details");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setDoOutput(true);
@@ -262,13 +254,12 @@ public class Plan_details extends AppCompatActivity {
                 os.flush();
                 os.close();
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     mainHandler.post(() -> {
                         String displayTime = startTime;
-                        if (!endTime.isEmpty()) {
-                            displayTime += " - " + endTime;
-                        }
-
+                        if (!endTime.isEmpty()) displayTime += " - " + endTime;
                         planList.add(new PlanDetailItem(displayTime, distance));
                         adapter.notifyItemInserted(planList.size() - 1);
                         Toast.makeText(Plan_details.this, "Added!", Toast.LENGTH_SHORT).show();
@@ -276,20 +267,28 @@ public class Plan_details extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "添加计划异常", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
     }
 
+    // ------------------- toggleItemComplete -------------------
     private void toggleItemComplete(int position) {
         if (position < 0 || position >= planList.size()) return;
         PlanDetailItem item = planList.get(position);
 
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/plan/toggle_complete";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                URL url = new URL(BASE_URL + "/v1/plan/toggle_complete");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("PUT");
                 connection.setDoOutput(true);
@@ -307,11 +306,12 @@ public class Plan_details extends AppCompatActivity {
                 os.write(jsonBody.toString().getBytes("UTF-8"));
                 os.close();
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
                     BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     JSONObject res = new JSONObject(br.readLine());
                     boolean newStatus = res.getJSONObject("data").optBoolean("is_completed", !item.isCompleted);
-
+                    success = true;
                     mainHandler.post(() -> {
                         item.isCompleted = newStatus;
                         adapter.notifyItemChanged(position);
@@ -319,18 +319,25 @@ public class Plan_details extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "Toggle complete error", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();
     }
 
+    // ------------------- deletePlanFromServer -------------------
     private void deletePlanFromServer(int position) {
         new Thread(() -> {
             HttpURLConnection connection = null;
+            String urlStr = BASE_URL + "/v1/plan/details/delete";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                // 🌟 修改点：动态拼接 BASE_URL
-                URL url = new URL(BASE_URL + "/v1/plan/details/delete");
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setDoOutput(true);
@@ -350,7 +357,9 @@ public class Plan_details extends AppCompatActivity {
                 os.flush();
                 os.close();
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     mainHandler.post(() -> {
                         planList.remove(position);
                         adapter.notifyItemRemoved(position);
@@ -359,7 +368,9 @@ public class Plan_details extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "删除计划异常", e);
+                success = false;
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();

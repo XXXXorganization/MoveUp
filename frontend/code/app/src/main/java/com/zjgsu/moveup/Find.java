@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;   // 添加此行
 import android.view.KeyEvent;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -36,14 +37,12 @@ import java.util.List;
 
 public class Find extends AppCompatActivity {
 
-    public static String BASE_URL = "http://10.0.2.2:3000/v1";
+    public static String BASE_URL = "http://192.168.25.47:3000/v1";
 
     private RecyclerView rvFindClubs;
     private ClubAdapter adapter;
     private List<Club> clubList;
     private Handler mainHandler;
-
-    // 🌟 新增：抽屉布局引用
     private DrawerLayout drawerLayout;
 
     @Override
@@ -52,7 +51,6 @@ public class Find extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_find);
 
-        // 🌟 初始化 DrawerLayout
         drawerLayout = findViewById(R.id.drawerLayout);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -82,22 +80,17 @@ public class Find extends AppCompatActivity {
             return false;
         });
 
-        // 🌟 绑定左上角菜单按钮点击事件：从左侧划出菜单
         findViewById(R.id.btnMenu).setOnClickListener(v -> {
             if (drawerLayout != null) {
                 drawerLayout.openDrawer(GravityCompat.START);
             }
         });
 
-        // 🌟 初始化并绑定侧滑菜单内部的跳转点击事件
         setupMenuClicks();
 
         fetchClubs("");
     }
 
-    /**
-     * 🌟 侧滑菜单跳转逻辑配置
-     */
     private void setupMenuClicks() {
         TextView menuHome = findViewById(R.id.menu_home);
         TextView menuHistory = findViewById(R.id.menu_history);
@@ -109,40 +102,42 @@ public class Find extends AppCompatActivity {
             startActivity(new Intent(Find.this, Main.class));
             finish();
         });
-
         if (menuHistory != null) menuHistory.setOnClickListener(v -> {
             startActivity(new Intent(Find.this, History.class));
             finish();
         });
-
         if (menuPlan != null) menuPlan.setOnClickListener(v -> {
             startActivity(new Intent(Find.this, Plan.class));
             finish();
         });
-
-        // 当前已经在社团查找相关页面，但如果是跳到详情也可以保留
         if (menuClub != null) menuClub.setOnClickListener(v -> {
-            if (drawerLayout != null) {
-                drawerLayout.closeDrawers();
-            }
+            if (drawerLayout != null) drawerLayout.closeDrawers();
         });
-
         if (menuProfile != null) menuProfile.setOnClickListener(v -> {
             startActivity(new Intent(Find.this, Mine.class));
             finish();
         });
     }
 
+    // ------------------- fetchClubs -------------------
     private void fetchClubs(String keyword) {
         new Thread(() -> {
             HttpURLConnection connection = null;
-            try {
-                String urlString = BASE_URL + "/clubs";
-                if (!keyword.isEmpty()) {
-                    urlString += "?q=" + URLEncoder.encode(keyword, "UTF-8");
+            String baseUrl = BASE_URL + "/clubs";
+            String urlStr = baseUrl;
+            if (!keyword.isEmpty()) {
+                try {
+                    urlStr += "?q=" + URLEncoder.encode(keyword, "UTF-8");
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
+            }
+            boolean success = false;
 
-                URL url = new URL(urlString);
+            MetricsCollector.recordRequestStart(urlStr);
+
+            try {
+                URL url = new URL(urlStr);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
@@ -152,7 +147,9 @@ public class Find extends AppCompatActivity {
                     connection.setRequestProperty("Authorization", "Bearer " + token);
                 }
 
-                if (connection.getResponseCode() == 200) {
+                int httpCode = connection.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -168,28 +165,30 @@ public class Find extends AppCompatActivity {
                         if (listArray != null) {
                             for (int i = 0; i < listArray.length(); i++) {
                                 JSONObject obj = listArray.getJSONObject(i);
-
                                 String id = obj.optString("id", "");
                                 String name = obj.optString("name");
                                 String location = obj.optString("location");
                                 String flag = obj.optString("flag", "🇨🇳");
                                 String imageUrl = obj.optString("image_url", "");
-
                                 tempNewList.add(new Club(id, name, location, imageUrl, flag));
                             }
                         }
 
+                        final List<Club> finalList = tempNewList;
                         mainHandler.post(() -> {
                             clubList.clear();
-                            clubList.addAll(tempNewList);
+                            clubList.addAll(finalList);
                             adapter.notifyDataSetChanged();
                             if (clubList.isEmpty()) Toast.makeText(Find.this, "未找到相关的跑团", Toast.LENGTH_SHORT).show();
                         });
                     }
                 }
             } catch (Exception e) {
+                Log.e("API_TEST", "Fetch clubs error", e);
+                success = false;
                 mainHandler.post(() -> Toast.makeText(Find.this, "网络异常", Toast.LENGTH_SHORT).show());
             } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
                 if (connection != null) connection.disconnect();
             }
         }).start();

@@ -3,11 +3,9 @@ package com.zjgsu.moveup;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Base64;
 import android.text.Html;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -38,8 +36,7 @@ import java.util.List;
 
 public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapter.PostViewHolder> {
 
-    // 🌟 核心修复：添加 public static 的 BASE_URL，供测试代码动态拦截
-    public static String BASE_URL = "http://10.0.2.2:3000";
+    public static String BASE_URL = "http://192.168.25.47:3000";
 
     private final List<ClubTermPost> posts;
     private final String currentUserId;
@@ -69,28 +66,26 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
         holder.tvSubLine.setText(post.subLine);
         holder.tvSubDetail.setText(post.subDetail);
 
-        // 渲染图片
         if (post.images != null && !post.images.isEmpty()) {
             holder.postImageWrap.setVisibility(View.VISIBLE);
             String firstImage = post.images.get(0);
             if (firstImage.startsWith("data:")) {
-                // base64 image
                 try {
                     byte[] decodedBytes = android.util.Base64.decode(
-                        firstImage.substring(firstImage.indexOf(",") + 1),
-                        android.util.Base64.DEFAULT);
+                            firstImage.substring(firstImage.indexOf(",") + 1),
+                            android.util.Base64.DEFAULT);
                     holder.ivPostImage.setImageBitmap(
-                        android.graphics.BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length));
+                            android.graphics.BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length));
                 } catch (Exception e) {
                     holder.ivPostImage.setImageResource(R.drawable.term1);
                 }
             } else {
                 Glide.with(holder.itemView.getContext())
-                    .load(firstImage)
-                    .centerCrop()
-                    .placeholder(R.drawable.term1)
-                    .error(R.drawable.term1)
-                    .into(holder.ivPostImage);
+                        .load(firstImage)
+                        .centerCrop()
+                        .placeholder(R.drawable.term1)
+                        .error(R.drawable.term1)
+                        .into(holder.ivPostImage);
             }
             holder.tvPostBadge.setText(post.images.size() + " pics");
             holder.tvPostBadge.setVisibility(View.VISIBLE);
@@ -98,7 +93,6 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
             holder.postImageWrap.setVisibility(View.GONE);
         }
 
-        // 渲染点赞状态
         holder.tvLikeCount.setText(post.likeCount + " likes");
         if (post.isLiked) {
             holder.ivLike.setColorFilter(Color.parseColor("#E91E63"));
@@ -106,16 +100,13 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
             holder.ivLike.setColorFilter(Color.parseColor("#8B8B8B"));
         }
 
-        // 1. 点赞点击事件
         holder.ivLike.setOnClickListener(v -> toggleLike(post, position));
 
-        // 2. 渲染评论区
         holder.llCommentsList.removeAllViews();
         if (post.comments != null) {
             for (ClubComment c : post.comments) {
                 TextView tv = new TextView(context);
                 tv.setTextSize(13);
-
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                 params.setMargins(0, 4, 0, 4);
@@ -140,7 +131,6 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
             }
         }
 
-        // 3. 点击卡片非评论区域
         holder.itemView.setOnClickListener(v -> {
             holder.etCommentInput.setTag(null);
             holder.etCommentInput.setHint("Add a comment...");
@@ -149,7 +139,6 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
             if (imm != null) imm.hideSoftInputFromWindow(holder.etCommentInput.getWindowToken(), 0);
         });
 
-        // 4. 评论折叠及跳转详情页
         if (post.totalComments > 3) {
             holder.tvViewAllComments.setVisibility(View.VISIBLE);
             holder.tvViewAllComments.setText("View all " + post.totalComments + " comments");
@@ -158,11 +147,9 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
             holder.tvViewAllComments.setVisibility(View.GONE);
         }
 
-        // 5. 发送评论事件
         holder.btnSendComment.setOnClickListener(v -> {
             String content = holder.etCommentInput.getText().toString().trim();
             if (content.isEmpty()) return;
-
             String replyToId = holder.etCommentInput.getTag() != null ? holder.etCommentInput.getTag().toString() : "";
             sendComment(post, content, replyToId, position, holder.etCommentInput);
         });
@@ -174,12 +161,18 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
         context.startActivity(intent);
     }
 
+    // ------------------- toggleLike -------------------
     private void toggleLike(ClubTermPost post, int position) {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            String urlStr = BASE_URL + "/v1/posts/" + post.id + "/like";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                // 🌟 修改点：动态拼接 BASE_URL
-                URL url = new URL(BASE_URL + "/v1/posts/" + post.id + "/like");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setDoOutput(true);
@@ -192,33 +185,44 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                 }
 
                 JSONObject body = new JSONObject();
-
                 OutputStream os = conn.getOutputStream();
                 os.write(body.toString().getBytes("UTF-8"));
                 os.close();
 
-                if (conn.getResponseCode() == 200) {
+                int httpCode = conn.getResponseCode();
+                if (httpCode == 200) {
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                     JSONObject res = new JSONObject(br.readLine());
                     JSONObject data = res.getJSONObject("data");
 
                     post.isLiked = data.optBoolean("is_liked", !post.isLiked);
                     post.likeCount = data.optInt("like_count", post.likeCount);
+                    success = true;
 
                     mainHandler.post(() -> notifyItemChanged(position));
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "Like Error", e);
+                success = false;
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
 
+    // ------------------- sendComment -------------------
     private void sendComment(ClubTermPost post, String content, String replyToId, int position, EditText inputField) {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            String urlStr = BASE_URL + "/v1/posts/" + post.id + "/comment";
+            boolean success = false;
+
+            MetricsCollector.recordRequestStart(urlStr);
+
             try {
-                // 🌟 修改点：动态拼接 BASE_URL
-                URL url = new URL(BASE_URL + "/v1/posts/" + post.id + "/comment");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setDoOutput(true);
@@ -241,12 +245,13 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                 os.write(body.toString().getBytes("UTF-8"));
                 os.close();
 
-                if (conn.getResponseCode() == 200) {
+                int httpCode = conn.getResponseCode();
+                if (httpCode == 200) {
+                    success = true;
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                     JSONObject res = new JSONObject(br.readLine());
                     JSONObject data = res.getJSONObject("data");
 
-                    // Backend returns a single comment object
                     String commentAuthor = "Unknown";
                     JSONObject authorObj = data.optJSONObject("author");
                     if (authorObj != null) {
@@ -271,16 +276,18 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
                         inputField.setText("");
                         inputField.setHint("Add a comment...");
                         inputField.setTag(null);
-
                         InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
                         if (imm != null) imm.hideSoftInputFromWindow(inputField.getWindowToken(), 0);
-
                         notifyItemChanged(position);
                         Toast.makeText(context, "Comment sent!", Toast.LENGTH_SHORT).show();
                     });
                 }
             } catch (Exception e) {
                 Log.e("API_TEST", "Comment Error", e);
+                success = false;
+            } finally {
+                MetricsCollector.recordRequestEnd(urlStr, success);
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
@@ -309,7 +316,6 @@ public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapte
             ivPostImage = itemView.findViewById(R.id.ivPostImage);
             postImageWrap = itemView.findViewById(R.id.postImageWrap);
             tvPostBadge = itemView.findViewById(R.id.tvPostBadge);
-
             llCommentsList = itemView.findViewById(R.id.llCommentsList);
             tvViewAllComments = itemView.findViewById(R.id.tvViewAllComments);
             etCommentInput = itemView.findViewById(R.id.etCommentInput);
