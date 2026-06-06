@@ -1,50 +1,125 @@
 # MoveUp
-### 项目状态
-[![CI 构建状态](https://github.com/XXXXorganization/MoveUp/actions/workflows/ci.yml/badge.svg)](https://github.com/XXXXorganization/MoveUp/actions/workflows/ci.yml)  
-#### [整体覆盖率][![codecov](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?token=VVQXTMZQTE)](https://codecov.io/gh/XXXXorganization/MoveUp) 
-#### [后端覆盖率][![codecov](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?flag=backend)](https://codecov.io/gh/XXXXorganization/MoveUp)
-#### [前端覆盖率][![codecov](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?flag=frontend)](https://codecov.io/gh/XXXXorganization/MoveUp)
 
-这是一个关于运动跑步的软件
+[![CI](https://github.com/XXXXorganization/MoveUp/actions/workflows/ci.yml/badge.svg)](https://github.com/XXXXorganization/MoveUp/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?token=VVQXTMZQTE)](https://codecov.io/gh/XXXXorganization/MoveUp)
+[![Backend](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?flag=backend)](https://codecov.io/gh/XXXXorganization/MoveUp)
+[![Frontend](https://codecov.io/gh/XXXXorganization/MoveUp/graph/badge.svg?flag=frontend)](https://codecov.io/gh/XXXXorganization/MoveUp)
+
+一款面向跑步爱好者的移动端运动软件，提供实时运动追踪、AI 语音教练、社团社交和游戏化挑战激励。
+
 ## 团队成员
+
 | 姓名 | 学号 | 分工 |
-|------|------|------|
-| 徐康勒  | 2312190422  | 前端，编写了Android 原生界面开发、页面交互、菜单导航、跑步定位功能实现|
-| 蔡燚翔  | 2312190426  | 后端，编写架构设计文档(含架构图)和数据库设计文档(含ER图) |
+|---|---|---|
+| 徐康勒 | 2312190422 | Android 前端 |
+| 蔡燚翔 | 2312190426 | 后端架构与数据库 |
+
 ## 项目简介
 
-Moveup是一款专为**跑步初学者和进阶爱好者**设计的移动端运动软件。其核心目标是利用移动端特性，通过“游戏化激励”与“科学化指导”，降低跑步门槛，帮助用户在趣味中养成运动习惯。
+MoveUp 专为跑步初学者和进阶爱好者设计，通过游戏化激励与科学化指导降低跑步门槛。
 
-核心功能包括：精准的实时运动数据追踪（配速、心率、路线）、AI智能生成的个性化跑步计划、丰富的实景挑战任务，以及一个强调正向鼓励的社交社区。在这里，用户可以与水平相近的伙伴互相监督、打卡交流。Moveup致力于让每一次迈步都充满动力，成为用户从零开始、不断突破自我的专属移动伙伴。
+核心功能：
+- **实时运动追踪**：GPS 轨迹记录、配速/距离/卡路里实时计算、心率监测
+- **AI 语音教练**：跑步过程中实时播报配速和位置，结合周围景点给予鼓励和导航
+- **社团社交**：加入跑团、发动态、点赞评论、分享跑步记录
+- **训练计划**：按天制定跑步任务，打勾标记完成，展示每周实际里程
 
-## 技术栈（初步规划）
-
-### 前端
-**开发平台**：Android 原生应用
-**开发工具**：Android Studio
-**开发语言**：Java
-**UI 框架**：Android 原生 XML 布局（ConstraintLayout / DrawerLayout）
-**定位服务**：高德地图API的引用
-**页面导航**：Activity 跳转 + 侧边抽屉菜单导航
-**数据展示**：原生文本、视图组件实时显示运动数据
+## 技术栈
 
 ### 后端
-- **应用框架**：Node.js + Express / Python + Django
-- **API架构**：RESTful API + GraphQL（灵活的数据查询）
-- **实时通信**：WebSocket / Socket.io（实时运动数据同步、社交互动）
-- **云服务**：阿里云 / 腾讯云 / AWS
-- **第三方集成**：微信/支付宝支付（会员服务）、社交媒体登录
+
+| 层级 | 技术 |
+|---|---|
+| 运行时 | Node.js 18 + TypeScript |
+| Web 框架 | Express.js |
+| 数据库 | PostgreSQL 15 |
+| ORM / 迁移 | Knex.js |
+| 认证 | JWT（Bearer Token） |
+| AI | DeepSeek（运动数据分析）+ 通义千问 Qwen 2.5 7B（语音助手） |
+| 对象存储 | 无（图片使用 PostgreSQL JSONB 字段存储） |
+| 测试 | Jest + Supertest（300+ 用例） |
+| CI/CD | GitHub Actions（自动测试 + 安全扫描 + Docker 镜像推送） |
+| 容器化 | Docker + Docker Compose |
+| 云端部署 | Render（PostgreSQL + Web Service） |
+
+### 前端
+
+| 层级 | 技术 |
+|---|---|
+| 平台 | Android 原生 |
+| 语言 | Java |
+| UI | XML 布局（ConstraintLayout / DrawerLayout） |
+| 地图 | 高德地图 SDK |
+| 网络 | HttpURLConnection |
+| 图片加载 | Glide |
+| 测试 | Robolectric + MockWebServer |
 
 ### 数据库
-- **主数据库**：PostgreSQL （用户信息、运动记录、社交关系）
-- **数据库迁移脚本**：采用Migration来版本控制数据库结构变化
-- **时序数据库**：InfluxDB （海量运动轨迹、心率等时序数据）
-- **缓存**：Redis（会话管理、实时排行榜、热门动态）
-- **对象存储**：OSS / S3（用户头像、跑步路线截图、社区图片）
 
+- **PostgreSQL** 29 张表：用户、运动记录、GPS 轨迹、社团动态、训练计划等
+- **Knex 迁移脚本** 16 个：版本化数据库结构变更
 
-### UI界面
-Figma链接：https://www.figma.com/design/IKpsxQMrrc4alOJIQWFdDe/Move-Up?node-id=0-1&t=b55PvDZSBtFpf062-1
+## 快速开始
 
-###  dbdiagram.io(ER图)
-https://dbdiagram.io/d/69c23dbb78c6c4bc7a5191bf
+### 后端
+
+```bash
+cd backend/docker
+docker compose --env-file .env.prod up -d
+# 访问 http://localhost:3000/health
+```
+
+### 前端
+
+用 Android Studio 打开 `frontend/code` 目录，Sync Gradle → Run。
+
+### 线上地址
+
+`https://moveup-v7mf.onrender.com`
+
+## 项目结构
+
+```
+MoveUp/
+├── backend/
+│   ├── src/
+│   │   ├── app.ts               # Express 入口 + 依赖注入
+│   │   ├── middleware/
+│   │   │   ├── auth.ts          # JWT 认证中间件
+│   │   │   └── errorHandler.ts  # 全局错误处理
+│   │   ├── modules/             # 7 个业务模块
+│   │   │   ├── user/            # 用户
+│   │   │   ├── sport/           # 运动
+│   │   │   ├── club/            # 社团
+│   │   │   ├── social/          # 社交
+│   │   │   ├── coaching/        # 训练指导
+│   │   │   ├── challenge/       # 挑战激励
+│   │   │   └── ai/              # AI 分析
+│   │   ├── routes/              # 路由定义（57 个端点）
+│   │   └── utils/
+│   │       ├── errors.ts        # 自定义错误类
+│   │       └── llm.ts           # LLM 客户端
+│   ├── migrations/              # 16 个数据库迁移
+│   ├── tests/                   # 17 个测试套件
+│   ├── docker/
+│   │   ├── docker-compose.yml   # 5 服务编排
+│   │   └── .env.prod            # 生产环境变量
+│   └── Dockerfile               # 多阶段构建
+├── frontend/
+│   └── code/                    # Android 项目
+├── docs/
+│   ├── architecture.md          # 系统架构设计
+│   ├── database.md              # 数据库设计（ER 图）
+│   ├── api.md                   # API 接口文档
+│   └── backend.md               # 后端技术文档
+└── .github/workflows/           # CI/CD 流水线
+```
+
+## 文档
+
+- [后端技术文档](docs/backend.md) — 完整 API 列表、数据库结构、启动方式
+- [架构设计](docs/architecture.md)
+- [数据库设计](docs/database.md)
+- [API 接口文档](docs/api.md)
+- [Figma UI 设计](https://www.figma.com/design/IKpsxQMrrc4alOJIQWFdDe/Move-Up?node-id=0-1&t=b55PvDZSBtFpf062-1)
+- [数据库 ER 图](https://dbdiagram.io/d/69c23dbb78c6c4bc7a5191bf)
