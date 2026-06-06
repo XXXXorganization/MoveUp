@@ -23,6 +23,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Lowercase image name
+        id: image
+        run: echo "name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Log in to GHCR
         uses: docker/login-action@v4
         with:
@@ -34,7 +38,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ steps.image.outputs.name }}
           tags: |
             type=ref,event=branch
             type=sha,prefix=,format=short
@@ -54,7 +58,7 @@ jobs:
       - name: Trivy vulnerability scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          image-ref: ${{ steps.image.outputs.name }}:${{ github.ref_name }}
           format: table
           exit-code: 0    # 只报告，不阻断（发现漏洞不失败）
           severity: HIGH,CRITICAL
