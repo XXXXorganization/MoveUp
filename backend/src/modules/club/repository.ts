@@ -8,6 +8,7 @@ export class ClubRepository {
   findAllClubs() { return this.model.findAll(); }
   findClubById(id: string) { return this.model.findById(id); }
   createClub(data: Omit<Club, 'id' | 'created_at' | 'updated_at'>) { return this.model.create(data); }
+  deleteClub(id: string) { return this.model.deleteById(id); }
 
   // Members
   findMember(clubId: string, userId: string) { return this.model.findMember(clubId, userId); }

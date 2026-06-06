@@ -13,6 +13,13 @@ export class ClubController {
     } catch (error) { next(error); }
   }
 
+  async deleteClub(req: Request, res: Response, next: NextFunction) {
+    try {
+      await this.service.deleteClub(req.params.id);
+      res.json({ code: 200, message: '删除成功', data: null });
+    } catch (error) { next(error); }
+  }
+
   async getClubs(req: Request, res: Response, next: NextFunction) {
     try {
       const clubs = await this.service.getClubs(req.user!.userId);

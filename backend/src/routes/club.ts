@@ -9,6 +9,7 @@ export function createClubRoutes(controller: ClubController): Router {
   router.get('/clubs', authenticateToken, controller.getClubs.bind(controller));
   router.get('/user/clubs', authenticateToken, controller.getMyClubs.bind(controller));
   router.get('/clubs/:id', authenticateToken, controller.getClubById.bind(controller));
+  router.delete('/clubs/:id', authenticateToken, controller.deleteClub.bind(controller));
   router.post('/clubs/:id/toggle', authenticateToken, controller.toggleMembership.bind(controller));
   router.get('/clubs/:id/posts', authenticateToken, controller.getPosts.bind(controller));
   router.post('/clubs/:id/posts', authenticateToken, controller.createPost.bind(controller));
