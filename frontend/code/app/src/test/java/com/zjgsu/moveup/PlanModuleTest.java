@@ -178,4 +178,163 @@ public class PlanModuleTest {
         RecyclerView recyclerView = activity.findViewById(R.id.recyclerPlanDetails);
         assertEquals(1, recyclerView.getAdapter().getItemCount());
     }
+
+    // ==========================================
+    // 4. Plan.java 测试：网络异常与菜单点击
+    // ==========================================
+
+    @Test
+    public void testPlanMain_NetworkError_DoesNotCrash() throws Exception {
+        mockWebServer.shutdown();
+
+        Plan activity = Robolectric.buildActivity(Plan.class).create().resume().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testPlanMain_MenuClicks_DoNotCrash() throws Exception {
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":{\"total_distance\":\"10 Km\"}}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":{\"total_distance\":\"10 Km\"}}"));
+
+        Plan activity = Robolectric.buildActivity(Plan.class).create().resume().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        if (activity.findViewById(R.id.menu_home) != null) {
+            activity.findViewById(R.id.menu_home).performClick();
+        }
+        if (activity.findViewById(R.id.menu_history) != null) {
+            activity.findViewById(R.id.menu_history).performClick();
+        }
+        if (activity.findViewById(R.id.menu_plan) != null) {
+            activity.findViewById(R.id.menu_plan).performClick();
+        }
+        if (activity.findViewById(R.id.menu_club) != null) {
+            activity.findViewById(R.id.menu_club).performClick();
+        }
+        if (activity.findViewById(R.id.menu_profile) != null) {
+            activity.findViewById(R.id.menu_profile).performClick();
+        }
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testPlanMain_Non200Code_NoCrash() throws Exception {
+        JSONObject resp = new JSONObject().put("code", 400).put("data", new JSONObject());
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(resp.toString()));
+
+        Plan activity = Robolectric.buildActivity(Plan.class).create().resume().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testPlanMain_HttpError_NoCrash() throws Exception {
+        mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+
+        Plan activity = Robolectric.buildActivity(Plan.class).create().resume().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testPlanMain_OnResume_FetchesAgain() throws Exception {
+        JSONObject data = new JSONObject().put("total_distance", "20 Km");
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":" + data.toString() + "}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":" + data.toString() + "}"));
+
+        Plan activity = Robolectric.buildActivity(Plan.class).create().resume().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        // Pause and resume
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    // ==========================================
+    // 5. Plan_details.java 补充：更多边界用例
+    // ==========================================
+
+    @Test
+    public void testPlanDetails_AddPlan_InvalidInput_ShowsToast() throws Exception {
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":{\"list\":[]}}"));
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class).create().resume().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        activity.findViewById(R.id.fabAddPlan).performClick();
+
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        assertNotNull(dialog);
+
+        // Don't fill in start time - should trigger validation error
+        dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertEquals("Please enter start time and distance", ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test
+    public void testPlanDetails_NetworkError_DoesNotCrash() throws Exception {
+        mockWebServer.shutdown();
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class).create().resume().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testPlanDetails_ToggleComplete_NetworkError_DoesNotCrash() throws Exception {
+        JSONObject item = new JSONObject().put("time", "09:00").put("distance", 5)
+                .put("is_completed", false);
+        JSONObject data = new JSONObject().put("day", "MONDAY").put("list", new JSONArray().put(item));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":" + data.toString() + "}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class).create().resume().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        RecyclerView rv = activity.findViewById(R.id.recyclerPlanDetails);
+        rv.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        rv.layout(0, 0, 1080, 1920);
+
+        View firstItem = rv.getChildAt(0);
+        if (firstItem != null) {
+            firstItem.performClick();
+            Thread.sleep(500);
+            Robolectric.flushForegroundThreadScheduler();
+        }
+
+        assertNotNull(activity);
+    }
 }

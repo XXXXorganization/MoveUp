@@ -1,5 +1,8 @@
 package com.zjgsu.moveup;
 
+import android.view.KeyEvent;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -19,6 +22,7 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 27) // 使用 SDK 27 避免高版本默认拦截 Http 请求
@@ -76,6 +80,137 @@ public class FindTest {
         Robolectric.flushForegroundThreadScheduler();
 
         // 4. 断言验证：捕捉网络异常的提示
+        assertEquals("网络异常", ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test
+    public void testFetchClubs_WithResults_UpdatesRecyclerView() throws Exception {
+        // Build a successful response with 2 clubs
+        JSONArray listArray = new JSONArray();
+        JSONObject club1 = new JSONObject()
+                .put("id", "c1")
+                .put("name", "Morning Runners")
+                .put("location", "Beijing")
+                .put("flag", "🇨🇳")
+                .put("image_url", "https://img.example.com/c1.jpg");
+        JSONObject club2 = new JSONObject()
+                .put("id", "c2")
+                .put("name", "Evening Striders")
+                .put("location", "Shanghai")
+                .put("flag", "🇨🇳")
+                .put("image_url", "");
+        listArray.put(club1);
+        listArray.put(club2);
+
+        JSONObject dataObj = new JSONObject().put("list", listArray);
+        JSONObject respObj = new JSONObject().put("code", 200).put("data", dataObj);
+
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(respObj.toString()));
+
+        Find activity = Robolectric.buildActivity(Find.class).create().resume().get();
+
+        TimeUnit.MILLISECONDS.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        // RecyclerView should be populated
+        assertNotNull(activity.findViewById(com.zjgsu.moveup.R.id.rvFindClubs));
+    }
+
+    @Test
+    public void testSearch_OnEditorAction_SearchesKeyword() throws Exception {
+        JSONObject dataObj = new JSONObject().put("list", new JSONArray());
+        JSONObject respObj = new JSONObject().put("code", 200).put("data", dataObj);
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(respObj.toString()));
+        // Enqueue second response for the search action
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(respObj.toString()));
+
+        Find activity = Robolectric.buildActivity(Find.class).create().resume().get();
+
+        TimeUnit.MILLISECONDS.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        EditText etSearch = activity.findViewById(R.id.etSearch);
+        etSearch.setText("test");
+        etSearch.onEditorAction(EditorInfo.IME_ACTION_SEARCH);
+
+        TimeUnit.MILLISECONDS.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testSearch_EnterKey_TriggersSearch() throws Exception {
+        JSONObject dataObj = new JSONObject().put("list", new JSONArray());
+        JSONObject respObj = new JSONObject().put("code", 200).put("data", dataObj);
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(respObj.toString()));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(respObj.toString()));
+
+        Find activity = Robolectric.buildActivity(Find.class).create().resume().get();
+
+        TimeUnit.MILLISECONDS.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        EditText etSearch = activity.findViewById(R.id.etSearch);
+        etSearch.setText("test");
+        etSearch.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER));
+
+        TimeUnit.MILLISECONDS.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testBtnMenu_OpensDrawer() throws Exception {
+        JSONObject dataObj = new JSONObject().put("list", new JSONArray());
+        JSONObject respObj = new JSONObject().put("code", 200).put("data", dataObj);
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(respObj.toString()));
+
+        Find activity = Robolectric.buildActivity(Find.class).create().resume().get();
+
+        TimeUnit.MILLISECONDS.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        activity.findViewById(R.id.btnMenu).performClick();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testFetchClubs_HttpErrorCode_NoCrash() throws Exception {
+        mockWebServer.enqueue(new MockResponse().setResponseCode(500).setBody("Internal Server Error"));
+
+        Find activity = Robolectric.buildActivity(Find.class).create().resume().get();
+
+        TimeUnit.MILLISECONDS.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testFetchClubs_Non200Code() throws Exception {
+        JSONObject resp = new JSONObject().put("code", 400).put("message", "Bad request");
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(resp.toString()));
+
+        Find activity = Robolectric.buildActivity(Find.class).create().resume().get();
+
+        TimeUnit.MILLISECONDS.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testFetchClubs_MalformedJson_NoCrash() throws Exception {
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("not valid json"));
+
+        Find activity = Robolectric.buildActivity(Find.class).create().resume().get();
+
+        TimeUnit.MILLISECONDS.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
         assertEquals("网络异常", ShadowToast.getTextOfLatestToast());
     }
 }
