@@ -4,6 +4,15 @@ import { ClubService } from './service';
 export class ClubController {
   constructor(private service: ClubService) {}
 
+  async createClub(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { name, description, location, image_url, flag } = req.body;
+      if (!name) { res.status(400).json({ code: 400, message: '社团名称必填', data: null }); return; }
+      const club = await this.service.createClub({ name, description, location, image_url, flag });
+      res.json({ code: 200, message: '创建成功', data: club });
+    } catch (error) { next(error); }
+  }
+
   async getClubs(req: Request, res: Response, next: NextFunction) {
     try {
       const clubs = await this.service.getClubs(req.user!.userId);

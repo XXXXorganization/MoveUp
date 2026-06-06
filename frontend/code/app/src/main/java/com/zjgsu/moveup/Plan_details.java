@@ -42,7 +42,7 @@ import java.util.Locale;
 
 public class Plan_details extends AppCompatActivity {
 
-    public static String BASE_URL = "http://192.168.25.47:3000";
+    public static String BASE_URL = "https://moveup-v7mf.onrender.com";
 
     private Handler mainHandler;
     private RecyclerView recyclerView;

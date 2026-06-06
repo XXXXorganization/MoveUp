@@ -36,7 +36,7 @@ import java.util.List;
 
 public class ClubTermPostAdapter extends RecyclerView.Adapter<ClubTermPostAdapter.PostViewHolder> {
 
-    public static String BASE_URL = "http://192.168.25.47:3000";
+    public static String BASE_URL = "https://moveup-v7mf.onrender.com";
 
     private final List<ClubTermPost> posts;
     private final String currentUserId;

@@ -68,7 +68,7 @@ import java.util.TimeZone;
 public class Runing extends AppCompatActivity implements AMapLocationListener {
 
     private static final String TAG = "RuningAPI";
-    public static String BASE_URL = "http://192.168.25.47:3000/v1";
+    public static String BASE_URL = "https://moveup-v7mf.onrender.com/v1";
 
     private static final String PREFS_AUTH = "moveup_auth";
     private static final String KEY_JWT = "jwt";
