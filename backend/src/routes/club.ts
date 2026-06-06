@@ -5,6 +5,7 @@ import { authenticateToken } from '../middleware/auth';
 export function createClubRoutes(controller: ClubController): Router {
   const router = Router();
 
+  router.post('/clubs', authenticateToken, controller.createClub.bind(controller));
   router.get('/clubs', authenticateToken, controller.getClubs.bind(controller));
   router.get('/user/clubs', authenticateToken, controller.getMyClubs.bind(controller));
   router.get('/clubs/:id', authenticateToken, controller.getClubById.bind(controller));

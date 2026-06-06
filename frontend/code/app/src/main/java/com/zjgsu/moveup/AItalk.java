@@ -28,7 +28,7 @@ import java.nio.charset.StandardCharsets;
 
 public class AItalk extends AppCompatActivity {
 
-    public static String BASE_URL = "http://192.168.25.47:3000/v1/ai/chat";
+    public static String BASE_URL = "https://moveup-v7mf.onrender.com/v1/ai/chat";
 
     private LinearLayout chatContainer;
     private ScrollView chatScrollView;

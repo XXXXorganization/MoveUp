@@ -37,7 +37,7 @@ import java.util.List;
 
 public class Find extends AppCompatActivity {
 
-    public static String BASE_URL = "http://192.168.25.47:3000/v1";
+    public static String BASE_URL = "https://moveup-v7mf.onrender.com/v1";
 
     private RecyclerView rvFindClubs;
     private ClubAdapter adapter;

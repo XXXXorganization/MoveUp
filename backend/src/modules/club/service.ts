@@ -5,6 +5,16 @@ import { AppError } from '../../utils/errors';
 export class ClubService {
   constructor(private repository: ClubRepository) {}
 
+  async createClub(data: { name: string; description?: string; location?: string; image_url?: string; flag?: string }) {
+    return this.repository.createClub({
+      name: data.name,
+      description: data.description,
+      location: data.location,
+      image_url: data.image_url,
+      flag: data.flag || 'CN',
+    });
+  }
+
   async getClubs(userId: string): Promise<ClubWithMembership[]> {
     const clubs = await this.repository.findAllClubs();
     const userClubIds = await this.repository.getUserClubIds(userId);

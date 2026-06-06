@@ -30,7 +30,7 @@ import java.util.List;
 
 public class PostDetailActivity extends AppCompatActivity {
 
-    public static String BASE_URL = "http://192.168.25.47:3000";
+    public static String BASE_URL = "https://moveup-v7mf.onrender.com";
 
     private RecyclerView rvAllComments;
     private String postId;
