@@ -40,7 +40,7 @@ jobs:
             type=sha,prefix=,format=short
             type=raw,value=latest,enable={{ is_default_branch }}
 
-      # === 第1步：构建镜像（不到推送） ===
+      # === 第1步：构建镜像（不推送，只 load 到本地供扫描） ===
       - name: Build image
         uses: docker/build-push-action@v7
         with:
@@ -49,8 +49,6 @@ jobs:
           push: false
           load: true
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       # === 第2步：Trivy 安全扫描 ===
       - name: Trivy vulnerability scan
