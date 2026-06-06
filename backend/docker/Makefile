@@ -59,9 +59,6 @@ logs-backend: ## 查看后端服务日志
 logs-db: ## 查看数据库日志
 	docker-compose -f docker-compose.yml logs -f postgres
 
-logs-redis: ## 查看 Redis 日志
-	docker-compose -f docker-compose.yml logs -f redis
-
 ##@ 数据库操作
 migrate: ## 执行数据库迁移
 	@echo "$(BLUE)执行数据库迁移...$(NC)"
@@ -128,7 +125,7 @@ init: ## 初始化项目（复制配置文件并启动）
 		cp .env.example .env; \
 		echo "$(GREEN)已创建 .env 文件，请根据需要修改配置$(NC)"; \
 	fi
-	@mkdir -p nginx/ssl backups
+	@mkdir -p backups
 	@echo "$(GREEN)初始化完成！$(NC)"
 	@echo "运行 'make up' 启动服务"
 

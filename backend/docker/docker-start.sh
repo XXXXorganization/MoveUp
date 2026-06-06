@@ -43,7 +43,6 @@ check_env() {
 # 创建必要的目录
 create_directories() {
     print_message "创建必要的目录..." "${BLUE}"
-    mkdir -p nginx/ssl
     mkdir -p backups
     mkdir -p logs
 }
@@ -106,7 +105,6 @@ show_status() {
     print_message "访问地址：" "${GREEN}"
     echo "  - API: http://localhost"
     echo "  - 健康检查: http://localhost/health"
-    echo "  - MinIO 控制台: http://localhost:9001"
     echo ""
     print_message "常用命令：" "${GREEN}"
     echo "  - 查看日志: docker-compose -f docker-compose.yml logs -f"

@@ -51,13 +51,9 @@ docker-compose logs -f
 |------|------|------|
 | API | http://localhost | 后端 API 服务 |
 | 健康检查 | http://localhost/health | 服务健康状态 |
-| MinIO 控制台 | http://localhost:9001 | 对象存储管理界面 |
 | PostgreSQL | localhost:5432 | 数据库（需工具连接） |
-| Redis | localhost:6379 | 缓存（需工具连接） |
 
-**MinIO 控制台默认账号：**
-- 用户名：`minioadmin`
-- 密码：`minioadmin`（请在 `.env` 中修改）
+**数据库默认账号：**
 
 ---
 
@@ -97,9 +93,6 @@ make logs-backend
 # 查看数据库日志
 make logs-db
 
-# 查看 Redis 日志
-make logs-redis
-```
 
 ### 数据库操作
 
@@ -150,9 +143,7 @@ make prune
 
 ```env
 POSTGRES_PASSWORD=<强密码>
-REDIS_PASSWORD=<强密码>
 JWT_SECRET=<随机生成的长字符串>
-MINIO_SECRET_KEY=<随机生成的长字符串>
 ```
 
 ### 可选配置
@@ -171,10 +162,6 @@ HTTPS_PORT=443
 # JWT
 JWT_EXPIRES_IN=7200
 
-# MinIO
-MINIO_PORT=9000
-MINIO_CONSOLE_PORT=9001
-```
 
 ---
 
@@ -186,9 +173,6 @@ MoveUp/
 │   ├── Dockerfile       # 后端 Docker 镜像定义
 │   ├── .dockerignore   # Docker 构建忽略文件
 │   └── src/           # 源代码
-├── nginx/              # Nginx 配置
-│   ├── nginx.conf      # Nginx 主配置文件
-│   └── ssl/           # SSL 证书目录
 ├── backups/            # 数据备份目录（自动创建）
 ├── logs/              # 日志目录（自动创建）
 ├── docker-compose.yml  # Docker Compose 配置

@@ -28,7 +28,7 @@ flowchart TB
 
     subgraph Gateway["🚪 API 网关层"]
         direction LR
-        B["Nginx / Express Gateway<br/>限流 · 鉴权 · 日志 · 负载均衡"]
+        B["Render 反向代理<br/>限流 · 鉴权 · 日志 · 负载均衡"]
     end
 
     subgraph Service["⚙️ 业务服务层"]
@@ -46,8 +46,7 @@ flowchart TB
             direction TB
             D1[("PostgreSQL")]
             D2[("InfluxDB")]
-            D3[("Redis")]
-            D4[("OSS")]
+            D3[("OSS")]
         end
         subgraph Async["异步处理"]
             direction TB
@@ -78,8 +77,7 @@ flowchart TB
 
 - **功能**：统一入口，处理跨切面关注点（鉴权、限流、日志、负载均衡），将请求路由至后端服务。
 - **组件**：
-  - `Nginx / Express Gateway`：反向代理，配置路由规则，集成 JWT 认证中间件，实现 API 限流。
-- **技术选型**：Nginx（高性能反向代理）或 Express Gateway（基于 Node.js 的 API 网关）。
+  - `Render`：云端反向代理，自动处理 HTTPS、负载均衡、请求路由。
 
 ### 3.3 业务服务层
 
@@ -91,14 +89,13 @@ flowchart TB
 | 运动服务 | 实时运动追踪、运动记录管理、路线管理 | WebSocket，GPS 纠偏算法 |
 | 社交服务 | 好友系统、社区动态、点赞评论、排行榜 | Node.js，WebSocket 推送 |
 | 智能指导服务 | AI 训练计划、语音指导、健康建议 | 规则引擎 / 机器学习 |
-| 挑战与激励服务 | 任务系统、成就徽章、实景挑战、会员积分 | 定时任务，Redis 计数 |
+| 挑战与激励服务 | 任务系统、成就徽章、实景挑战、会员积分 | 定时任务，PostgreSQL |
 
 ### 3.4 存储与异步层
 
 - **数据服务**：
   - **PostgreSQL**：存储结构化数据（用户、运动记录元数据、社交关系、任务/成就），支持 JSONB 和空间查询（PostGIS）。
   - **InfluxDB**：时序数据库，存储 GPS 点序列、心率流、分段配速等高频率写入数据，便于高效查询与聚合。
-  - **Redis**：缓存热点数据（会话、排行榜、热门路线），同时作为消息队列（Pub/Sub）或计数器。
   - **OSS (对象存储)**：存储用户头像、运动截图、社区图片，提供 CDN 加速。
 - **异步处理**：
   - **RabbitMQ**：处理耗时任务，如运动数据后处理（分段配速、卡路里计算）、图片压缩、消息推送等，削峰填谷，提高系统响应速度。
@@ -133,7 +130,7 @@ flowchart TB
 ### 5.1 安全策略
 
 - **传输安全**：全站 HTTPS，敏感字段（密码）使用 bcrypt 哈希存储。
-- **认证授权**：JWT 无状态认证，支持黑名单（Redis 存储已注销 token）。
+- **认证授权**：JWT 无状态认证。
 - **防攻击**：API 网关层限流（每 IP 每分钟 100 次），SQL 注入过滤（参数化查询），XSS 过滤输出内容。
 - **数据备份**：PostgreSQL 每日全量备份，WAL 归档保留 7 天。
 
@@ -151,8 +148,8 @@ flowchart TB
 
 ## 6. 部署架构
 
-- **容器化**：所有服务（网关、业务服务、Redis、PostgreSQL 等）使用 Docker 打包，通过 Docker Compose 编排。
-- **生产环境**：部署在云服务器（如阿里云 ECS），使用云数据库 RDS for PostgreSQL 和云 Redis 托管服务，减轻运维负担。
+- **容器化**：所有服务（网关、业务服务、PostgreSQL 等）使用 Docker 打包，通过 Docker Compose 编排。
+- **生产环境**：部署在 Render 云端，使用托管 PostgreSQL。
 - **CDN**：静态资源（头像、图片）通过 OSS + CDN 加速。
 
 ## 7. 技术选型总结
@@ -161,11 +158,11 @@ flowchart TB
 |------|--------|
 | 客户端 | Android原生开发、高德/谷歌地图 SDK |
 | 后端框架 | Node.js + Express + TypeScript |
-| 数据库 | PostgreSQL (主) + InfluxDB (时序) + Redis (缓存) |
-| 存储 | 阿里云 OSS / MinIO |
+| 数据库 | PostgreSQL (主) + InfluxDB (时序) |
+| 存储 | PostgreSQL JSONB |
 | 消息队列 | RabbitMQ |
-| 网关 | Nginx / Express Gateway |
-| 部署 | Docker + Docker Compose，云服务器 |
+| 网关 | Render |
+| 部署 | Docker（Render 云端） |
 
 ## 8. 演进路线
 

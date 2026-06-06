@@ -11,8 +11,7 @@ Moveup 是一款运动跑步软件，提供用户管理、运动数据追踪、�
 - 语言：TypeScript
 - 数据库：PostgreSQL (主库) + InfluxDB (时序数据库，可选)
 - ORM/查询构建器：Knex.js
-- 缓存：Redis (会话、排行榜)
-- 对象存储：MinIO / 阿里云 OSS
+- 对象存储：无（图片通过 PostgreSQL JSONB 字段存储）
 - 消息队列：RabbitMQ (异步任务)
 - 实时通信：WebSocket
 - 认证：JWT
@@ -27,7 +26,6 @@ Moveup 是一款运动跑步软件，提供用户管理、运动数据追踪、�
 
 ### 部署与运维
 - 容器化：Docker + Docker Compose
-- 反向代理：Nginx
 - 进程管理：PM2
 - CI/CD：GitHub Actions (可选)
 

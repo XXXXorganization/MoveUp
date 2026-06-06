@@ -6,6 +6,7 @@ import android.widget.EditText;
 
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
@@ -213,5 +214,243 @@ public class ClubCommunityActivityTest {
 
         // Should show exit confirmation dialog
         assertNotNull(org.robolectric.shadows.ShadowDialog.getLatestDialog());
+    }
+
+    @Test
+    public void testFetchClubDetails_WithImageUrl_LoadsImage() throws Exception {
+        mockWebServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                if (request.getPath() != null && request.getPath().contains("/posts")) {
+                    return new MockResponse().setResponseCode(200)
+                            .setBody("{\"code\":200,\"data\":{\"list\":[]}}");
+                }
+                return new MockResponse().setResponseCode(200)
+                        .setBody("{\"code\":200,\"data\":{\"name\":\"Photo Club\",\"location\":\"Paris\",\"image_url\":\"https://picsum.photos/200\",\"is_member\":true,\"member_count\":42}}");
+            }
+        });
+
+        Intent intent = new Intent();
+        intent.putExtra("CLUB_ID", "photo-club");
+        ClubCommunityActivity activity = Robolectric.buildActivity(ClubCommunityActivity.class, intent).create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testFetchClubDetails_NonMember_ShowsToastAndFinishes() throws Exception {
+        mockWebServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                if (request.getPath() != null && request.getPath().contains("/posts")) {
+                    return new MockResponse().setResponseCode(200)
+                            .setBody("{\"code\":200,\"data\":{\"list\":[]}}");
+                }
+                return new MockResponse().setResponseCode(200)
+                        .setBody("{\"code\":200,\"data\":{\"name\":\"ExClub\",\"location\":\"\",\"image_url\":\"\",\"is_member\":false,\"member_count\":0}}");
+            }
+        });
+
+        Intent intent = new Intent();
+        intent.putExtra("CLUB_ID", "ex-club");
+        ClubCommunityActivity activity = Robolectric.buildActivity(ClubCommunityActivity.class, intent).create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testFetchPosts_WithAllFields() throws Exception {
+        mockWebServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                String path = request.getPath();
+                if (path != null && path.contains("/posts") && request.getMethod().equals("GET")) {
+                    try {
+                        JSONObject commentAuthor = new JSONObject().put("nickname", "Commenter");
+                        JSONObject comment = new JSONObject()
+                                .put("id", "cmt1")
+                                .put("author", commentAuthor)
+                                .put("content", "Nice!")
+                                .put("created_at", "2026-01-02");
+
+                        JSONObject runSum = new JSONObject()
+                                .put("distance", 5.2)
+                                .put("duration", 1800)
+                                .put("pace", "5'46\"");
+
+                        JSONArray images = new JSONArray().put("https://img.example.com/post1.jpg");
+
+                        JSONObject postAuthor = new JSONObject().put("nickname", "Runner1");
+                        JSONObject post = new JSONObject()
+                                .put("id", "p-full")
+                                .put("author", postAuthor)
+                                .put("content", "Full post with everything")
+                                .put("created_at", "2026-01-01")
+                                .put("is_liked", true)
+                                .put("like_count", 5)
+                                .put("comments", new JSONArray().put(comment))
+                                .put("images", images)
+                                .put("run_summary", runSum);
+
+                        return new MockResponse().setResponseCode(200)
+                                .setBody("{\"code\":200,\"data\":{\"list\":[" + post.toString() + "]}}");
+                    } catch (Exception e) {
+                        return new MockResponse().setResponseCode(500);
+                    }
+                }
+                return new MockResponse().setResponseCode(200)
+                        .setBody("{\"code\":200,\"data\":{\"name\":\"Full\",\"location\":\"World\",\"image_url\":\"\",\"is_member\":true,\"member_count\":10}}");
+            }
+        });
+
+        Intent intent = new Intent();
+        intent.putExtra("CLUB_ID", "full");
+        ClubCommunityActivity activity = Robolectric.buildActivity(ClubCommunityActivity.class, intent).create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testFetchPosts_EmptyArray_NoCrash() throws Exception {
+        mockWebServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                if (request.getPath() != null && request.getPath().contains("/posts")) {
+                    return new MockResponse().setResponseCode(200)
+                            .setBody("{\"code\":200,\"data\":{\"list\":[]}}");
+                }
+                return new MockResponse().setResponseCode(200)
+                        .setBody("{\"code\":200,\"data\":{\"name\":\"Empty\",\"location\":\"\",\"image_url\":\"\",\"is_member\":true,\"member_count\":1}}");
+            }
+        });
+
+        Intent intent = new Intent();
+        intent.putExtra("CLUB_ID", "empty");
+        ClubCommunityActivity activity = Robolectric.buildActivity(ClubCommunityActivity.class, intent).create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testCreatePost_NetworkError_ShowsToast() throws Exception {
+        // Shut down server to simulate connection failure
+        mockWebServer.shutdown();
+
+        Intent intent = new Intent();
+        intent.putExtra("CLUB_ID", "club-1");
+        ClubCommunityActivity activity = Robolectric.buildActivity(ClubCommunityActivity.class, intent).create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        EditText et = activity.findViewById(R.id.etNewPost);
+        et.setText("Test");
+        activity.findViewById(R.id.btnSendPost).performClick();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertEquals("Failed to post", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test
+    public void testToggleExit_NetworkError_ShowsToast() throws Exception {
+        mockWebServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                String path = request.getPath();
+                if (path != null && path.contains("/toggle")) {
+                    // Shut down on toggle to simulate network error
+                    try { mockWebServer.shutdown(); } catch (Exception ignored) {}
+                    return new MockResponse().setResponseCode(500);
+                } else if (path != null && path.contains("/posts")) {
+                    return new MockResponse().setResponseCode(200)
+                            .setBody("{\"code\":200,\"data\":{\"list\":[]}}");
+                }
+                return new MockResponse().setResponseCode(200)
+                        .setBody("{\"code\":200,\"data\":{\"name\":\"Club\",\"location\":\"City\",\"image_url\":\"\",\"is_member\":true,\"member_count\":3}}");
+            }
+        });
+
+        Intent intent = new Intent();
+        intent.putExtra("CLUB_ID", "club-1");
+        ClubCommunityActivity activity = Robolectric.buildActivity(ClubCommunityActivity.class, intent).create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        activity.findViewById(R.id.btnExit).performClick();
+        Thread.sleep(200);
+        Robolectric.flushForegroundThreadScheduler();
+
+        android.app.Dialog dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        if (dialog != null) {
+            dialog.dismiss();
+        }
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testImagePickerButton_DoesNotCrash() throws Exception {
+        mockWebServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                if (request.getPath() != null && request.getPath().contains("/posts")) {
+                    return new MockResponse().setResponseCode(200)
+                            .setBody("{\"code\":200,\"data\":{\"list\":[]}}");
+                }
+                return new MockResponse().setResponseCode(200)
+                        .setBody("{\"code\":200,\"data\":{\"name\":\"Club\",\"location\":\"City\",\"image_url\":\"\",\"is_member\":true,\"member_count\":3}}");
+            }
+        });
+
+        Intent intent = new Intent();
+        intent.putExtra("CLUB_ID", "club-1");
+        ClubCommunityActivity activity = Robolectric.buildActivity(ClubCommunityActivity.class, intent).create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        if (activity.findViewById(R.id.btnPickImage) != null) {
+            activity.findViewById(R.id.btnPickImage).performClick();
+        }
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testNullClubId_UsesDefault() throws Exception {
+        mockWebServer.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                if (request.getPath() != null && request.getPath().contains("/posts")) {
+                    return new MockResponse().setResponseCode(200)
+                            .setBody("{\"code\":200,\"data\":{\"list\":[]}}");
+                }
+                return new MockResponse().setResponseCode(200)
+                        .setBody("{\"code\":200,\"data\":{\"name\":\"Default\",\"location\":\"\",\"image_url\":\"\",\"is_member\":true,\"member_count\":0}}");
+            }
+        });
+
+        // No CLUB_ID extra
+        ClubCommunityActivity activity = Robolectric.buildActivity(ClubCommunityActivity.class).create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
     }
 }

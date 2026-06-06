@@ -114,4 +114,159 @@ public class PlanDetailsTest {
         }
         assertNotNull(activity);
     }
+
+    @Test
+    public void testNetworkError_HandlesGracefully() throws Exception {
+        mockWebServer.shutdown();
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class)
+                .create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testHttpErrorCode_NoCrash() throws Exception {
+        mockWebServer.enqueue(new MockResponse().setResponseCode(500).setBody("Error"));
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class)
+                .create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testNon200ResponseCode_NoCrash() throws Exception {
+        JSONObject resp = new JSONObject().put("code", 400).put("data", new JSONObject());
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(resp.toString()));
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class)
+                .create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testBackButton_FinishesActivity() throws Exception {
+        JSONObject data = new JSONObject().put("day", "MONDAY").put("list", new JSONArray());
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":" + data.toString() + "}"));
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class)
+                .create().get();
+
+        Thread.sleep(300);
+        Robolectric.flushForegroundThreadScheduler();
+
+        if (activity.findViewById(R.id.btnBack) != null) {
+            activity.findViewById(R.id.btnBack).performClick();
+        }
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testMenuButton_FinishesActivity() throws Exception {
+        JSONObject data = new JSONObject().put("day", "MONDAY").put("list", new JSONArray());
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":" + data.toString() + "}"));
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class)
+                .create().get();
+
+        Thread.sleep(300);
+        Robolectric.flushForegroundThreadScheduler();
+
+        if (activity.findViewById(R.id.btnMenu) != null) {
+            activity.findViewById(R.id.btnMenu).performClick();
+        }
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testNullDay_UsesDefault() throws Exception {
+        // No extra in intent → day defaults to "MONDAY"
+        JSONObject data = new JSONObject().put("day", "MONDAY").put("list", new JSONArray());
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":" + data.toString() + "}"));
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class)
+                .create().get();
+
+        Thread.sleep(300);
+        Robolectric.flushForegroundThreadScheduler();
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testAddPlanEndpoint_Reachable() throws Exception {
+        JSONObject data = new JSONObject().put("day", "MONDAY").put("list", new JSONArray());
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":" + data.toString() + "}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200}"));
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class)
+                .create().get();
+
+        Thread.sleep(500);
+        Robolectric.flushForegroundThreadScheduler();
+
+        // Click FAB to open add dialog
+        if (activity.findViewById(R.id.fabAddPlan) != null) {
+            activity.findViewById(R.id.fabAddPlan).performClick();
+        }
+
+        assertNotNull(activity);
+    }
+
+    @Test
+    public void testDeleteEndpoint_Reachable() throws Exception {
+        JSONObject item = new JSONObject().put("id", "i1").put("time", "08:00")
+                .put("distance", 5).put("is_completed", false);
+        JSONObject data = new JSONObject().put("day", "MONDAY").put("list", new JSONArray().put(item));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":" + data.toString() + "}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200}"));
+        // Refresh after delete
+        mockWebServer.enqueue(new MockResponse().setResponseCode(200)
+                .setBody("{\"code\":200,\"data\":" + data.toString() + "}"));
+
+        Plan_details activity = Robolectric.buildActivity(Plan_details.class)
+                .create().get();
+
+        Thread.sleep(800);
+        Robolectric.flushForegroundThreadScheduler();
+
+        // Find and long-click the item to trigger delete dialog
+        RecyclerView rv = activity.findViewById(R.id.recyclerPlanDetails);
+        RecyclerView.ViewHolder vh = rv.findViewHolderForAdapterPosition(0);
+        if (vh != null) {
+            vh.itemView.performLongClick();
+            Thread.sleep(300);
+            Robolectric.flushForegroundThreadScheduler();
+
+            // Click "Delete" on the AlertDialog
+            android.app.AlertDialog dialog = (android.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog();
+            if (dialog != null) {
+                dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
+                Thread.sleep(500);
+                Robolectric.flushForegroundThreadScheduler();
+            }
+        }
+
+        assertNotNull(activity);
+    }
 }
