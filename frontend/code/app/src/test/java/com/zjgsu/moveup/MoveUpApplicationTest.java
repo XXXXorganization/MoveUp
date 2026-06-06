@@ -1,23 +1,27 @@
 package com.zjgsu.moveup;
 
+import android.content.Context;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.android.controller.ActivityController;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 import static org.junit.Assert.assertNotNull;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 27)
+@Config(sdk = 27, application = MoveUpApplication.class)
 public class MoveUpApplicationTest {
+
+    private Context context;
 
     @Before
     public void setUp() {
         LocalHealthServer.stopServer();
+        context = RuntimeEnvironment.application;
     }
 
     @After
@@ -27,7 +31,7 @@ public class MoveUpApplicationTest {
 
     @Test
     public void testApplication_OnCreate_InitializesServices() {
-        MoveUpApplication app = (MoveUpApplication) Robolectric.setupActivity(MoveUpApplication.class);
+        MoveUpApplication app = (MoveUpApplication) RuntimeEnvironment.application;
         assertNotNull(app);
         assertNotNull(app.getApplicationContext());
     }

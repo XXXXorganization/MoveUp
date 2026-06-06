@@ -1,7 +1,5 @@
 package com.zjgsu.moveup;
 
-import android.content.Intent;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
@@ -43,8 +41,6 @@ public class MainActivityTest {
         // Let the Handler's postDelayed run
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        Intent nextIntent = org.robolectric.shadows.ShadowApplication.getInstance()
-                .getForegroundThreadScheduler().getIntent();
         // Verify activity doesn't crash - the delayed intent is internal
         assertNotNull(activity);
     }
