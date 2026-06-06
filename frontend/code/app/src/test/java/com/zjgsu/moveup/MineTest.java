@@ -179,10 +179,6 @@ public class MineTest {
         TimeUnit.MILLISECONDS.sleep(500);
         Robolectric.flushForegroundThreadScheduler();
 
-        // Pause and resume to trigger onResume
-        Robolectric.flushForegroundThreadScheduler();
-        Robolectric.flushBackgroundThreadScheduler();
-
         assertNotNull(activity);
     }
 
