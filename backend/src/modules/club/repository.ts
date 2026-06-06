@@ -6,7 +6,6 @@ export class ClubRepository {
 
   // Clubs
   findAllClubs() { return this.model.findAll(); }
-  createClub(data: any) { return this.model.create(data); }
   findClubById(id: string) { return this.model.findById(id); }
   createClub(data: Omit<Club, 'id' | 'created_at' | 'updated_at'>) { return this.model.create(data); }
 
