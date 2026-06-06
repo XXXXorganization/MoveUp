@@ -15,6 +15,12 @@ export class ClubService {
     });
   }
 
+  async deleteClub(clubId: string) {
+    const club = await this.repository.findClubById(clubId);
+    if (!club) throw new AppError('社团不存在', 404);
+    await this.repository.deleteClub(clubId);
+  }
+
   async getClubs(userId: string): Promise<ClubWithMembership[]> {
     const clubs = await this.repository.findAllClubs();
     const userClubIds = await this.repository.getUserClubIds(userId);

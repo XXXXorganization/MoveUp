@@ -12,6 +12,10 @@ export class ClubModel {
     return this.db('clubs').where({ id }).first();
   }
 
+  async deleteById(id: string): Promise<void> {
+    await this.db('clubs').where({ id }).del();
+  }
+
   async create(data: Omit<Club, 'id' | 'created_at' | 'updated_at'>): Promise<Club> {
     const [row] = await this.db('clubs').insert(data).returning('*');
     return row;
