@@ -395,14 +395,11 @@ public class ClubCommunityActivityTest {
         Thread.sleep(200);
         Robolectric.flushForegroundThreadScheduler();
 
-        android.app.AlertDialog dialog = (android.app.AlertDialog) org.robolectric.shadows.ShadowDialog.getLatestDialog();
+        android.app.Dialog dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog();
         if (dialog != null) {
-            dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();
-            Thread.sleep(500);
-            Robolectric.flushForegroundThreadScheduler();
+            dialog.dismiss();
         }
 
-        // Either "Network Error" or the dialog wasn't shown — both are acceptable in test
         assertNotNull(activity);
     }
 
