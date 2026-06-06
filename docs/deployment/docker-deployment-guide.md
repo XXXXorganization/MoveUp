@@ -82,15 +82,9 @@ curl http://localhost/api/v1/auth/code \
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Nginx    │────▶│   Backend   │────▶│  PostgreSQL │
-│   (80/443) │     │   (3000)    │     │   (5432)    │
+│   Render   │────▶│   Backend   │────▶│  PostgreSQL │
+│  (反向代理)  │     │   (3000)    │     │   (5432)    │
 └─────────────┘     └─────────────┘     └─────────────┘
-                          │
-                          ├────▶│  Redis   │
-                          │      │ (6379)   │
-                          └────▶│  MinIO   │
-                                 │ (9000)   │
-                                 └───────────┘
 ```
 
 ### 环境变量说明
@@ -103,10 +97,6 @@ POSTGRES_DB=moveup_db        # 数据库名称
 POSTGRES_PORT=5432            # 宿主机端口映射
 ```
 
-#### Redis 配置
-```env
-REDIS_PASSWORD=redis123        # Redis 密码
-REDIS_PORT=6379              # 宿主机端口映射
 ```
 
 #### 应用配置
@@ -114,23 +104,12 @@ REDIS_PORT=6379              # 宿主机端口映射
 NODE_ENV=production           # 环境模式：development/production
 PORT=3000                   # 应用内部端口
 BACKEND_PORT=3000            # 宿主机端口映射
-HTTP_PORT=80                 # Nginx HTTP 端口
-HTTPS_PORT=443               # Nginx HTTPS 端口
 ```
 
 #### JWT 配置
 ```env
 JWT_SECRET=your-secret-key    # JWT 签名密钥（生产环境必须修改！）
 JWT_EXPIRES_IN=7200          # Token 过期时间（秒）
-```
-
-#### MinIO 配置
-```env
-MINIO_ACCESS_KEY=minioadmin   # MinIO 访问密钥
-MINIO_SECRET_KEY=change-me   # MinIO 密钥（生产环境必须修改！）
-MINIO_PORT=9000             # MinIO API 端口
-MINIO_CONSOLE_PORT=9001      # MinIO 控制台端口
-MINIO_BUCKET=moveup-uploads  # 存储桶名称
 ```
 
 ---
@@ -163,7 +142,6 @@ docker-compose logs
 # 查看特定服务日志
 docker-compose logs backend
 docker-compose logs postgres
-docker-compose logs redis
 
 # 实时跟踪日志
 docker-compose logs -f backend
@@ -195,13 +173,6 @@ docker-compose exec postgres pg_dump -U postgres moveup_db > backup.sql
 # 恢复数据库
 docker-compose exec -T postgres psql -U postgres moveup_db < backup.sql
 
-# 备份 Redis
-docker-compose exec redis redis-cli -a redis123 BGSAVE
-
-# 备份 MinIO 数据（通过卷）
-docker run --rm -v moveup_minio_data:/data -v $(pwd):/backup \
-  alpine tar czf /backup/minio-backup.tar.gz -C /data .
-```
 
 ### 清理
 ```bash
@@ -230,20 +201,9 @@ docker system prune -a
 POSTGRES_PASSWORD=<强密码>
 REDIS_PASSWORD=<强密码>
 JWT_SECRET=<随机生成的长字符串>
-MINIO_SECRET_KEY=<随机生成的长字符串>
 ```
 
-2. **启用 HTTPS**
-```bash
-# 创建 SSL 目录
-mkdir -p nginx/ssl
-
-# 放置证书文件
-cp /path/to/cert.pem nginx/ssl/cert.pem
-cp /path/to/key.pem nginx/ssl/key.pem
-
-# 修改 nginx.conf，取消 HTTPS 配置的注释
-```
+2. **启用 HTTPS**（Render 自动处理 SSL/TLS，无需手动配置）
 
 3. **配置防火墙**
 ```bash
@@ -400,28 +360,6 @@ df -h
 sudo journalctl --vacuum-time=7d
 ```
 
-### 问题5：MinIO 访问失败
-
-**症状：** 无法访问 MinIO 控制台或存储
-
-**解决步骤：**
-```bash
-# 1. 检查 MinIO 是否就绪
-docker-compose logs minio
-
-# 2. 重新创建存储桶
-docker-compose exec backend node -e "
-  const { S3Client, CreateBucketCommand } = require('@aws-sdk/client-s3');
-  const client = new S3Client({
-    endpoint: 'http://minio:9000',
-    credentials: { accessKeyId: 'minioadmin', secretAccessKey: 'minioadmin' },
-    region: 'us-east-1',
-    forcePathStyle: true,
-  });
-  await client.send(new CreateBucketCommand({ Bucket: 'moveup-uploads' }));
-"
-```
-
 ---
 
 ## 附录
@@ -430,13 +368,8 @@ docker-compose exec backend node -e "
 
 | 服务 | 内部端口 | 外部端口 | 说明 |
 |------|---------|---------|------|
-| Nginx | 80 | 80 | HTTP |
-| Nginx | 443 | 443 | HTTPS |
 | Backend | 3000 | 3000 | API 服务 |
 | PostgreSQL | 5432 | 5432 | 数据库 |
-| Redis | 6379 | 6379 | 缓存 |
-| MinIO API | 9000 | 9000 | 对象存储 API |
-| MinIO Console | 9001 | 9001 | 管理控制台 |
 
 ### 目录映射
 
@@ -444,8 +377,6 @@ docker-compose exec backend node -e "
 |-----------|---------|------|
 | ./backend/migrations | /app/migrations | 数据库迁移文件 |
 | postgres_data (volume) | /var/lib/postgresql/data | 数据库数据 |
-| redis_data (volume) | /data | Redis 数据 |
-| minio_data (volume) | /data | MinIO 数据 |
 
 ### 有用的 Docker 命令
 

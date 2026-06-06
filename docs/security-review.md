@@ -18,7 +18,6 @@
 | FIND-05 | 排行榜/好友搜索缺少输入长度限制 | A03:2021 注入 | 🟢 低 | 已评估（安全） |
 | FIND-06 | 无登录暴力破解防护 | A07:2021 认证失效 | 🟡 中 | 📝 建议后续修复 |
 | FIND-07 | CORS 允许所有来源 | A01:2021 访问控制失效 | 🟢 低 | 📝 建议收紧 |
-| FIND-08 | Docker Compose 中的 MinIO 弱口令 | A02:2021 加密失效 | 🟡 中 | 📝 建议更换 |
 
 ---
 
@@ -173,8 +172,6 @@ async updateSportRecord(req: Request, res: Response, next: NextFunction): Promis
 | `backend/.env` | PostgreSQL 密码: `asdQWE05--` |
 | `backend/docker/.env` | DeepSeek API Key: `sk-0b2622ca...` |
 | `backend/docker/.env` | JWT_SECRET 明文 |
-| `backend/docker/.env` | MinIO Access/Secret Key: `minioadmin/minioadmin` |
-| `backend/docker/.env` | Redis 密码: `redis123` |
 
 **修复建议**:
 1. **立即轮换所有已泄露的密钥**（DeepSeek API Key、数据库密码、JWT Secret）
@@ -293,9 +290,7 @@ app.use(cors({
 **OWASP**: A02:2021 Cryptographic Failures
 
 **问题描述**:
-- MinIO: `minioadmin/minioadmin`（默认凭据，公开已知）
 - PostgreSQL: `postgres/postgres`（默认凭据）
-- Redis: `redis123`（弱密码）
 
 **修复建议**:
 - Docker Compose 中所有服务生成随机强密码

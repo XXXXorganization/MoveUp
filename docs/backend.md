@@ -12,9 +12,7 @@
 | 查询构建器 | Knex.js（迁移 + 种子） |
 | 认证 | JWT（Bearer Token，有效期 2 小时） |
 | AI | DeepSeek（数据分析）+ 通义千问 Qwen 2.5 7B（语音助手） |
-| 对象存储 | MinIO（S3 兼容） |
-| 缓存 | Redis 7 |
-| 反向代理 | Nginx |
+| 对象存储 | 无（图片通过 PostgreSQL JSONB 字段存储） |
 | 部署 | Docker + Docker Compose |
 | 测试 | Jest + Supertest |
 
@@ -45,8 +43,6 @@ curl http://localhost:3000/health
 | `DEEPSEEK_BASE_URL` | DeepSeek API 地址 | https://api.deepseek.com |
 | `QWEN_API_KEY` | 通义千问 API 密钥 | - |
 | `QWEN_BASE_URL` | SiliconFlow API 地址 | https://api.siliconflow.cn |
-| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Redis 连接 | - |
-| `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | MinIO 配置 | - |
 
 ## 4. 认证机制
 
@@ -300,9 +296,8 @@ backend/
 ├── migrations/                 # 16 个迁移脚本
 ├── tests/                      # 17 个测试套件
 ├── docker/
-│   ├── docker-compose.yml      # 5 服务编排
+│   ├── docker-compose.yml      # 3 服务编排
 │   ├── .env.prod               # 生产环境变量
-│   └── nginx/nginx.conf        # 反向代理配置
 └── Dockerfile                  # 多阶段构建
 ```
 
