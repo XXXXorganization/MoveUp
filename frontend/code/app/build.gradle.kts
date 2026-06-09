@@ -77,7 +77,7 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
 
     // 用来生成 Mock 虚拟对象的库 (解决 mockito 爆红)
-    testImplementation("org.mockito:mockito-core:5.3.1")
+    testImplementation("org.mockito:mockito-core:5.23.0")
     implementation("org.nanohttpd:nanohttpd:2.3.1")
     // 用来测试 Fragment 生命周期的官方库 (解决 testing 爆红)
     // 注意：这里必须是 debugImplementation，因为测试 Fragment 需要一个空的 Debug Activity 容器
